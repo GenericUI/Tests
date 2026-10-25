@@ -14,6 +14,7 @@ import com.nexustools.genericui.nativeimpl.dock.DockPanelNativeImpl
 import com.nexustools.genericui.nativeimpl.dock.DockWindowNativeImpl
 import com.nexustools.genericui.nativeimpl.dock.DockWorkspaceNativeImpl
 import com.nexustools.genericui.nativeimpl.dock.ToolPaletteNativeImpl
+import com.nexustools.genericui.nativeimpl.document.BookContainerNativeImpl
 import com.nexustools.genericui.nativeimpl.feedback.ProgressBarNativeImpl
 import com.nexustools.genericui.nativeimpl.feedback.SpinnerNativeImpl
 import com.nexustools.genericui.nativeimpl.form.CheckboxNativeImpl
@@ -67,6 +68,7 @@ internal object HeadlessLifecycleMarkerFactory : NativeFactory {
     override fun createDockWindow(): DockWindowNativeImpl<*> = unsupported()
     override fun createToolPalette(): ToolPaletteNativeImpl<*> = unsupported()
     override fun createContainer(classPrefix: String): ContainerNativeImpl<*> = unsupported()
+    override fun createBookContainer(): BookContainerNativeImpl<*> = unsupported()
     override fun createScrollView(): ScrollViewNativeImpl<*> = unsupported()
     override fun createDivider(): DividerNativeImpl<*> = unsupported()
     override fun createText(tagName: String, classPrefix: String): TextNativeImpl<*> = unsupported()

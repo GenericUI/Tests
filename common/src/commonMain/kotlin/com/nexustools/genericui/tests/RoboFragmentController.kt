@@ -52,9 +52,7 @@ class RoboFragmentController<F : Fragment>(
             create()
         }
         if (fragment.state != FragmentState.RESUMED) {
-            autoResumeFactoryEnabled = true
-            hostContainer.removeChild(fragment)
-            hostContainer.replaceFragment(fragment)
+            hostContainer.ensureActiveFragmentStartedAndResumed()
         }
         runnerImpl.pumpUiEvents(16L)
         return this

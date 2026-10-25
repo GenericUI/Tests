@@ -37,17 +37,7 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
         } else {
             app.mainWindow.show(null)
             if (app is FragmentApplication) {
-                val activeFragment = app.currentFragment
-                if (activeFragment != null) {
-                    val previousFactory = GenericUI.activeFactory
-                    try {
-                        GenericUI.initialize(HeadlessLifecycleMarkerFactory)
-                        app.rootFragmentContainer.removeChild(activeFragment)
-                        app.rootFragmentContainer.replaceFragment(activeFragment)
-                    } finally {
-                        GenericUI.activeFactory = previousFactory
-                    }
-                }
+                app.rootFragmentContainer.ensureActiveFragmentStartedAndResumed()
             }
         }
         pumpUiEvents(16L)
