@@ -4,8 +4,8 @@ import com.nexustools.genericui.component.action.Button
 import com.nexustools.genericui.component.dock.DockArea
 import com.nexustools.genericui.component.dock.DockGroup
 import com.nexustools.genericui.component.dock.DockPanel
-import com.nexustools.genericui.component.dock.DockWindow
 import com.nexustools.genericui.component.dock.DockWorkspace
+import com.nexustools.genericui.component.dock.PanelWindow
 import com.nexustools.genericui.component.form.CheckBox
 import com.nexustools.genericui.component.form.Select
 import com.nexustools.genericui.component.form.TextField
@@ -118,7 +118,11 @@ object RoboComponentTreeFinder {
             node.panels.forEach { collectInto(it, visited) }
         }
 
-        if (node is DockWindow) {
+        if (node is DockPanel) {
+            collectTitleBarComponents(node.getTitleBar(), visited)
+        }
+
+        if (node is PanelWindow) {
             node.panel?.let { collectInto(it, visited) }
         }
 
