@@ -20,7 +20,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(project(":mobile:shared"))
+            api(project(":mobile:common"))
             api(project(":tests:common"))
         }
         commonTest.dependencies {

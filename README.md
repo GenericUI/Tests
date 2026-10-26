@@ -1,115 +1,107 @@
-# GenericUI — `JestElectricRunner` UI Testing Suite Submodule (`:tests`)
+# `:tests` — Multiplatform Testing & `JestElectricRunner`
 
-> **Root Repository**: [**GenericUI (`../README.md`)**](../README.md) | **Root Documentation**: [SourceSet Hierarchy](../docs/sourcesets.md) · [Backends Guide](../docs/backends.md) · [Extensions Guide](../docs/extensions.md) · [Gradle Plugin](../docs/gradle-plugin.md) · [UI Testing](../docs/testing.md)
-
-The **UI Testing Suite Submodule (`:tests`)** of **GenericUI** (`com.nexustools.genericui.tests.*`) provides **`JestElectricRunner`**—a unified, cross-platform UI testing framework that combines a **Jest-style BDD test & matcher DSL** (`describe`, `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, `test`, `it`, `expect`, `expectComponent`, `expectNode`) with **Robolectric-inspired UI lifecycle & node controllers** (`launchApp`, `launchFragment`, `RoboAppController`, `RoboFragmentController`, `RoboNodeInteraction`, `RoboComponentExpectation`) and native platform runners across all 8 GenericUI backends.
-
----
-
-## Submodule Architecture & Categorized Modules
-
-| Gradle Module | Directory | Target Platforms | Key Classes | Responsibility | Detailed Guide |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **`:tests`** | [`./`](./) | All KMP Targets | Umbrella Module | Re-exports `:tests:common` for multiplatform test sourceSets (`commonTest`). | [**`docs/jest-electric-runner.md`**](./docs/jest-electric-runner.md) |
-| **`:tests:common`** | [`common/`](./common) | All KMP Targets | `JestElectricRunner`, `JestSuiteScope`, `JestTestScope`, `JestExpectation`, `RoboComponentExpectation`, `RoboAppController`, `RoboFragmentController`, `RoboNodeInteraction`, `RoboComponentTreeFinder` | Platform-agnostic BDD test runner, expectation matchers, component tree selectors, and lifecycle controllers. | [**`docs/jest-electric-runner.md`**](./docs/jest-electric-runner.md) |
-| **`:tests:desktop:shared`** | [`desktop/shared/`](./desktop/shared) | `mingwX64`, `macosX64`, `macosArm64`, `linuxX64`, `linuxArm64` | `DesktopSharedRunnerNativeImpl` | Shared native desktop test runner bridge for `:windows`, `:macos`, `:gtk`, and `:qt`. | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:desktop:windows`** | [`desktop/windows/`](./desktop/windows) | `mingwX64` | `WindowsVisualAppRunnerNativeImpl`, `WindowsJestElectricBootstrap` | **Visual Onscreen Win32 Runner**: Launches a real Win32 native window onscreen (`Win32NativeWindowHost`), displays a live test status banner (`[RUNNING]`, `[PASS]`, `[FAIL]`), and visually executes clicks, text input, hover/focus, and menu items in real time (`./gradlew windowsVisualTest`). | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:desktop:macos`** | [`desktop/macos/`](./desktop/macos) | `macosX64`, `macosArm64` | `MacosJestElectricRunnerNativeImpl` | Native macOS AppKit `JestElectricRunnerNativeImpl` runner. | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:desktop:gtk`** | [`desktop/gtk/`](./desktop/gtk) | `linuxX64`, `linuxArm64` | `GtkJestElectricRunnerNativeImpl` | Native Linux GTK4 `JestElectricRunnerNativeImpl` runner. | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:desktop:qt`** | [`desktop/qt/`](./desktop/qt) | `linuxX64`, `linuxArm64` | `QtJestElectricRunnerNativeImpl` | Native Linux Qt6 `JestElectricRunnerNativeImpl` runner. | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:desktop:swing`** | [`desktop/swing/`](./desktop/swing) | `jvm` | `SwingJUnitRunnerNativeImpl`, `JestElectricSwingTestBase` | Java Swing + JUnit 4 runner (`describeSwingSuite`) with headless and visual AWT/Swing EDT support. | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:mobile:shared`** | [`mobile/shared/`](./mobile/shared) | `android`, `iosArm64`, `iosSimulatorArm64` | `MobileSharedRunnerNativeImpl` | Shared mobile test runner foundation for `:android` and `:ios`. | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:mobile:android`** | [`mobile/android/`](./mobile/android) | `android` | `AndroidRobolectricRunnerNativeImpl`, `JestElectricRobolectricTestBase` | Android JUnit 4 + Robolectric runner (`describeAndroidSuite`) for testing `Fragment`s, `GenericUiFragmentActivity`, and Android Views without an emulator. | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:mobile:ios`** | [`mobile/ios/`](./mobile/ios) | `iosArm64`, `iosSimulatorArm64` | `IosJestElectricRunnerNativeImpl` | Native iOS UIKit test runner (`iosSimulatorArm64Test`). | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
-| **`:tests:web`** | [`web/`](./web) | `wasmJs`, `js(IR)` | `WebJestElectricRunnerNativeImpl` | Browser / DOM `JestElectricRunnerNativeImpl` runner for `:web`. | [**`docs/platform-test-runners.md`**](./docs/platform-test-runners.md) |
+## Overview
+The `:tests` module hierarchy provides `JestElectricRunner` — a Robolectric + Jest inspired multiplatform UI testing framework — along with platform-specific test runner backends covering every GenericUI target (`:desktop:windows`, `:desktop:macos`, `:desktop:gtk`, `:desktop:qt`, `:desktop:swing`, `:mobile:android`, `:mobile:ios`, and `:web`).
 
 ---
 
-## Hierarchical Test SourceSet Integration
+## Module Hierarchy
 
-When you apply `id("com.nexustools.genericui")`, `:tests:common` and the appropriate platform test runner (`:tests:desktop:*`, `:tests:mobile:*`, `:tests:web`) are automatically wired into the corresponding `*Test` sourceSets:
-
-```
-commonTest (:tests:common)
- ├── webTest (:tests:web)
- └── systemCommonTest
-      ├── desktopCommonTest
-      │    ├── swingTest (:tests:desktop:swing)
-      │    └── desktopNativeCommonTest (:tests:desktop:shared)
-      │         ├── windowsTest (:tests:desktop:windows — WindowsVisualAppRunnerNativeImpl)
-      │         ├── macTest (:tests:desktop:macos — MacosJestElectricRunnerNativeImpl)
-      │         └── linuxTest
-      │              ├── gtkTest (:tests:desktop:gtk — GtkJestElectricRunnerNativeImpl)
-      │              └── qtTest (:tests:desktop:qt — QtJestElectricRunnerNativeImpl)
-      └── mobileCommonTest (:tests:mobile:shared)
-           ├── androidUnitTest (:tests:mobile:android — AndroidRobolectricRunnerNativeImpl)
-           └── iosTest (:tests:mobile:ios — IosJestElectricRunnerNativeImpl)
+```text
+:tests                        # Aggregator & cross-platform verification suites
+├── :tests:common             # JestElectricRunner, UiTestContext, WidgetMatcher, AssertionScope, MockSystemServices
+├── :tests:desktop:nativeCommon # Native desktop test harness helpers (Win32, macOS, GTK, Qt)
+├── :tests:desktop:windows    # Windows native (mingwX64) test runner + optional real HWND visual mode
+├── :tests:desktop:macos      # macOS native (macosX64, macosArm64) test runner
+├── :tests:desktop:gtk        # Linux GTK (linuxX64) test runner
+├── :tests:desktop:qt         # Linux Qt (linuxX64) test runner
+├── :tests:desktop:swing      # JVM Swing test runner
+├── :tests:mobile:common      # Mobile test harness helpers (Android & iOS)
+├── :tests:mobile:android     # Android test runner (Activity / View hierarchy inspection)
+├── :tests:mobile:ios         # iOS (iosX64, iosArm64, iosSimulatorArm64) test runner
+└── :tests:web                # Web (js, wasmJs) virtual DOM & History (#hash / state) test runner
 ```
 
-For full sourceSet details, see [**Root SourceSet Hierarchy (`../docs/sourcesets.md`)**](../docs/sourcesets.md).
-
 ---
 
-## Quick Example: Writing a Multi-Backend UI Test
+## Single-`commonTest` UI Testing with `JestElectricRunner`
 
+Just as application code lives in `src/commonMain/kotlin`, UI tests live in `src/commonTest/kotlin` and run across every enabled backend without platform-specific test code:
+
+### 1. Testing an Individual Fragment (`launchFragment`)
 ```kotlin
-import com.nexustools.genericui.tests.JestElectricRunner
+import com.nexustools.genericui.testing.JestElectricRunner
 import kotlin.test.Test
-import kotlin.test.assertTrue
 
-class StudioWorkspaceUiTest {
-
+class CounterFragmentTest {
     @Test
-    fun testCanvasCreationAndMenuWorkflow() {
-        val report = JestElectricRunner.describe("Studio Workspace UI Suite") {
-            beforeEach {
-                // Runs before each test in this describe block
-            }
+    fun clickingIncrementUpdatesLabel() = JestElectricRunner.runTest {
+        val fragment = launchFragment { CounterFragment() }
 
-            it("launches the app, clicks New Canvas, types a title, and verifies state") {
-                val app = launchApp { MyStudioApp() }
+        onWidgetWithId("counter-label").assertTextEquals("Count: 0")
+        onWidgetWithId("increment-btn").performClick()
+        onWidgetWithId("counter-label").assertTextEquals("Count: 1")
+    }
+}
+```
 
-                app.findById("new-canvas-btn")
-                    .assertExists()
-                    .assertIsVisible()
-                    .assertIsEnabled()
-                    .performClick()
+### 2. Testing Full Application & Multi-Fragment Navigation (`launchApp`)
+```kotlin
+class AppNavigationTest {
+    @Test
+    fun navigatesFromHomeToSettingsAndRestoresState() = JestElectricRunner.runTest {
+        val host = launchApp(
+            mainFragment = { HomeFragment() },
+            fragments = mapOf("settings" to { SettingsFragment() })
+        )
 
-                app.findById("canvas-title-input")
-                    .assertExists()
-                    .performFocus()
-                    .performTypeText("Hero Banner 4K")
-                    .assertTextEquals("Hero Banner 4K")
+        onWidgetWithText("Open Settings").performClick()
+        onWidgetWithId("settings-title").assertIsVisible()
 
-                app.clickMenu("File", "Save Project")
-                expect(app.app.isProjectSaved).toBe(true)
-            }
-        }
-        assertTrue(report.allPassed)
+        // Navigate back via FragmentHostFragment / browser popstate / Android back press
+        host.popBackStack()
+        onWidgetWithId("home-title").assertIsVisible()
     }
 }
 ```
 
 ---
 
-## Testing Documentation Guides (`tests/docs/*.md`)
+## Generated Visual Test Runners (`testing { visualOnWindows = true }`)
 
-1. [**`JestElectricRunner` API & DSL Reference (`docs/jest-electric-runner.md`)**](./docs/jest-electric-runner.md) — Complete guide to `describe`, `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, `test`, `it`, `expect` (`JestExpectation`), `expectComponent` / `expectNode` (`RoboComponentExpectation`), `launchApp` (`RoboAppController`), `launchFragment` (`RoboFragmentController`), and `RoboNodeInteraction`.
-2. [**Platform-Specific Test Runners & Visual Testing (`docs/platform-test-runners.md`)**](./docs/platform-test-runners.md) — Complete guide to `WindowsVisualAppRunnerNativeImpl` (`windowsVisualTest` live onscreen Win32 testing), `SwingJUnitRunnerNativeImpl` (`JestElectricSwingTestBase`), `AndroidRobolectricRunnerNativeImpl` (`JestElectricRobolectricTestBase`), `WebJestElectricRunnerNativeImpl`, and macOS/GTK/Qt/iOS runners.
+By default, `:tests:desktop:windows` and all other test runners execute headlessly for fast CI verification. When debugging UI layout or native Win32 rendering interactively, enable `visualOnWindows` in `build.gradle.kts`:
+
+```kotlin
+genericui {
+    applicationId = "com.example.myapp"
+    appName = "My App"
+    testing {
+        visualOnWindows = true
+    }
+}
+```
+
+When `testing.visualOnWindows` is enabled (or `-Pgenericui.visualTests=true` is passed on the Gradle command line), `GenericUiGenerateLaunchersTask` generates `GeneratedWindowsVisualTestLauncher` in `mingwX64Test`:
+
+```kotlin
+// Auto-generated in build/generated/genericui/launchers/mingwX64Test
+object GeneratedWindowsVisualTestLauncher {
+    val visualModeEnabled: Boolean = true
+
+    fun runVisualFragmentTest(
+        title: String = "Visual Test",
+        width: Int = 1024,
+        height: Int = 768,
+        fragmentFactory: () -> Fragment,
+        assertions: (Fragment) -> Unit = {}
+    ) { ... }
+}
+```
+
+This opens a real Win32 window during test execution so developers can visually inspect native widget layout, custom `TitleBar` embedding, and animations while assertions run.
 
 ---
 
-## Cross-References to Sibling Submodules & Root Docs
-
-- **Root GenericUI Repository**: [`../README.md`](../README.md)
-- **Root Architecture & Guides**:
-  - [SourceSet Hierarchy (`../docs/sourcesets.md`)](../docs/sourcesets.md)
-  - [Platform Backends Overview (`../docs/backends.md`)](../docs/backends.md)
-  - [Extensions Architecture (`../docs/extensions.md`)](../docs/extensions.md)
-  - [Gradle Plugin Reference (`../docs/gradle-plugin.md`)](../docs/gradle-plugin.md)
-  - [UI Testing Guide (`../docs/testing.md`)](../docs/testing.md)
-- **Sibling Submodules**:
-  - **Desktop Backends (`:desktop`)**: [`../desktop/README.md`](../desktop/README.md) ([`:desktop:windows`](../desktop/docs/windows.md), [`:desktop:macos`](../desktop/docs/macos.md), [`:desktop:gtk`](../desktop/docs/gtk.md), [`:desktop:qt`](../desktop/docs/qt.md), [`:desktop:swing`](../desktop/docs/swing.md))
-  - **Mobile Backends (`:mobile`)**: [`../mobile/README.md`](../mobile/README.md) ([`:mobile:android`](../mobile/docs/android.md), [`:mobile:ios`](../mobile/docs/ios.md))
-  - **Web Backend (`:web`)**: [`../web/README.md`](../web/README.md)
-  - **Nexus JavaScript Engine (`:NJS`)**: [`../NJS/README.md`](../lib/NJS/README.md)
+## Detailed Documentation
+- [`JestElectricRunner` API Reference (`docs/jest-electric-runner.md`)](docs/jest-electric-runner.md)
+- [Platform Test Runners (`docs/platform-test-runners.md`)](docs/platform-test-runners.md)

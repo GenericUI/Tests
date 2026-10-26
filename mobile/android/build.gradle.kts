@@ -18,7 +18,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":mobile:android"))
-            api(project(":tests:mobile:shared"))
+            api(project(":tests:mobile:common"))
             api(libs.junit)
             api(libs.kotlin.testJunit)
         }

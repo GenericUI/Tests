@@ -9,7 +9,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":desktop:gtk"))
-            api(project(":tests:desktop:shared"))
+            api(project(":tests:desktop:nativeCommon"))
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

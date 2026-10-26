@@ -11,7 +11,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(project(":desktop:shared"))
+            api(project(":desktop:nativeCommon"))
             api(project(":tests:common"))
         }
         commonTest.dependencies {
