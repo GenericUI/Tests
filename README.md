@@ -11,15 +11,15 @@ The `:tests` module hierarchy provides `JestElectricRunner` — a Robolectric + 
 :tests                        # Aggregator & cross-platform verification suites
 ├── :tests:common             # JestElectricRunner, UiTestContext, WidgetMatcher, AssertionScope, MockSystemServices
 ├── :tests:desktop:nativeCommon # Native desktop test harness helpers (Win32, macOS, GTK, Qt)
-├── :tests:desktop:windows    # Windows native (mingwX64) test runner + optional real HWND visual mode
-├── :tests:desktop:macos      # macOS native (macosX64, macosArm64) test runner
+├── :tests:desktop:windows    # Windows native (mingwX64) test runner + UxTheme / WindowsCurCodec + optional HWND visual mode
+├── :tests:desktop:macos      # macOS native (macosX64, macosArm64) test runner + MacosCursorTranslator verification
 ├── :tests:desktop:gtk        # Linux GTK (linuxX64) test runner
 ├── :tests:desktop:qt         # Linux Qt (linuxX64) test runner
 ├── :tests:desktop:swing      # JVM Swing test runner
 ├── :tests:mobile:common      # Mobile test harness helpers (Android & iOS)
 ├── :tests:mobile:android     # Android test runner (Activity / View hierarchy inspection)
 ├── :tests:mobile:ios         # iOS (iosX64, iosArm64, iosSimulatorArm64) test runner
-└── :tests:web                # Web (js, wasmJs) virtual DOM & History (#hash / state) test runner
+└── :tests:web                # Web (js, wasmJs) virtual DOM, WebDomElement class isolation, WebStyleSheetManager & History test runner
 ```
 
 ---
@@ -45,22 +45,18 @@ class CounterFragmentTest {
 }
 ```
 
-### 2. Testing Full Application & Multi-Fragment Navigation (`launchApp`)
+### 2. Testing `ComponentStyle`, `ComponentBootstrap`, User Class Isolation, & `ThemeMode`
 ```kotlin
-class AppNavigationTest {
+class StylingAndThemeTest {
     @Test
-    fun navigatesFromHomeToSettingsAndRestoresState() = JestElectricRunner.runTest {
-        val host = launchApp(
-            mainFragment = { HomeFragment() },
-            fragments = mapOf("settings" to { SettingsFragment() })
-        )
+    fun verifiesBootstrapTypeNoneDefaultAndUserClassIsolation() = JestElectricRunner.runTest {
+        val fragment = launchFragment { CounterFragment() }
+        val button = onWidgetWithId("increment-btn").widget
 
-        onWidgetWithText("Open Settings").performClick()
-        onWidgetWithId("settings-title").assertIsVisible()
-
-        // Navigate back via FragmentHostFragment / browser popstate / Android back press
-        host.popBackStack()
-        onWidgetWithId("home-title").assertIsVisible()
+        // Default BootstrapType is NONE; enum classes never pollute getClasses()
+        button.addClass("custom-action")
+        assert(button.hasClass("custom-action"))
+        assert(button.getClasses() == setOf("custom-action"))
     }
 }
 ```
@@ -69,36 +65,21 @@ class AppNavigationTest {
 
 ## Generated Visual Test Runners (`testing { visualOnWindows = true }`)
 
-By default, `:tests:desktop:windows` and all other test runners execute headlessly for fast CI verification. When debugging UI layout or native Win32 rendering interactively, enable `visualOnWindows` in `build.gradle.kts`:
+By default, `:tests:desktop:windows` and all other test runners execute headlessly for fast CI verification. When debugging UI layout or native Win32 `UxTheme` rendering interactively, enable `visualOnWindows` in `build.gradle.kts`:
 
 ```kotlin
 genericui {
-    applicationId = "com.example.myapp"
-    appName = "My App"
+    app {
+        id = "com.example.myapp"
+        name = "My App"
+    }
     testing {
         visualOnWindows = true
     }
 }
 ```
 
-When `testing.visualOnWindows` is enabled (or `-Pgenericui.visualTests=true` is passed on the Gradle command line), `GenericUiGenerateLaunchersTask` generates `GeneratedWindowsVisualTestLauncher` in `mingwX64Test`:
-
-```kotlin
-// Auto-generated in build/generated/genericui/launchers/mingwX64Test
-object GeneratedWindowsVisualTestLauncher {
-    val visualModeEnabled: Boolean = true
-
-    fun runVisualFragmentTest(
-        title: String = "Visual Test",
-        width: Int = 1024,
-        height: Int = 768,
-        fragmentFactory: () -> Fragment,
-        assertions: (Fragment) -> Unit = {}
-    ) { ... }
-}
-```
-
-This opens a real Win32 window during test execution so developers can visually inspect native widget layout, custom `TitleBar` embedding, and animations while assertions run.
+When `testing.visualOnWindows` is enabled (or `-Pgenericui.visualTests=true` is passed on the Gradle command line), `GenericUiGenerateLaunchersTask` generates `GeneratedWindowsVisualTestLauncher` in `mingwX64Test`, opening a real Win32 window during test execution.
 
 ---
 

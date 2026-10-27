@@ -42,21 +42,10 @@ Inside `JestElectricRunner.runTest { ... }`, the receiver is a `UiTestContext` p
 
 ---
 
-## Assertions (`AssertionScope`)
+## Verifying Styling, Cursors, Theming, Window Chrome, & Navigation History
 
-- `assertExists()` / `assertDoesNotExist()`
-- `assertIsVisible()` / `assertIsHidden()`
-- `assertIsEnabled()` / `assertIsDisabled()`
-- `assertIsFocused()`
-- `assertTextEquals(expected: String)` / `assertTextContains(substring: String)`
-- `assertChecked(expected: Boolean = true)`
-- `assertBounds(width: Int, height: Int)`
-
----
-
-## Verifying Window Chrome & Navigation History
-
-`JestElectricRunner` also allows tests in `commonTest` to verify platform chrome rules and navigation state:
-- **Single-Placement `TitleBar` Verification**: Inspect `window.titleCapabilities` and verify that custom components added to `TitleBar` have `mountedInTitleBar == true` and appear only once in the titlebar/navbar hierarchy.
-- **Mobile & Web Optional Navbar Verification**: Verify that when `window.titleBar == null && window.menuBar == null` on Android, iOS, and Web, no top navbar is rendered (`isTitleBarRequired == false`).
-- **Fragment State & History Round-Trip**: Trigger `fragmentHost.navigate(...)` and `fragmentHost.popBackStack()` (or simulate browser `popstate` on `:tests:web`) to verify `onSaveState(outState)` and `onRestoreState(savedState)` preserve `FragmentBundle` values across navigation.
+`JestElectricRunner` allows tests in `commonTest` to verify all styling, cursor, theme, chrome, and navigation invariants:
+- **`ComponentStyle` (`getStyle()`) & `ComponentBootstrap` (`getBootstrap()`)**: Verify `BootstrapType.NONE` default, semantic `BootstrapType` tinting (`DANGER`, `PRIMARY`, etc.), `!important` property flags, `accentColor` (`accent-color`), and `CssCustomCursor` (`.cur` encoding via `WindowsCurCodec` on Windows, `NSImage` PNG encoding via `MacosCursorTranslator` on macOS).
+- **Strict User CSS Class Isolation**: Verify that `getClasses()`, `getClass()`, and `hasClass()` return exclusively user-added classes (`customClasses` / `userClassList`) and never expose enum-managed classes.
+- **`IApplication.addStyleSheet` / `removeStyleSheet` & `ThemeMode`**: Verify stylesheet registration (`R.style.<name>`) and `app.setTheme(ThemeMode.AUTO | ThemeMode.DARK | ThemeMode.LIGHT)` / `app.getResolvedTheme()`.
+- **Single-Placement `TitleBar` & Optional Mobile/Web Navbar**: Verify `mountedInTitleBar == true` on desktop and `isTitleBarRequired == false` on mobile/web.
