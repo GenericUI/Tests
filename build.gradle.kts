@@ -35,7 +35,6 @@ kotlin {
     linuxX64()
     linuxArm64()
     macosArm64()
-    macosX64()
     iosArm64()
     iosSimulatorArm64()
 

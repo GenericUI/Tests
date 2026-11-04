@@ -3,6 +3,7 @@ package com.nexustools.genericui.tests
 import com.nexustools.genericui.core.NativeFactory
 import com.nexustools.genericui.nativeimpl.action.ButtonNativeImpl
 import com.nexustools.genericui.nativeimpl.action.DropdownNativeImpl
+import com.nexustools.genericui.nativeimpl.action.StyledButtonNativeImpl
 import com.nexustools.genericui.nativeimpl.content.ImageNativeImpl
 import com.nexustools.genericui.nativeimpl.content.TableNativeImpl
 import com.nexustools.genericui.nativeimpl.dialog.DialogWindowNativeImpl
@@ -24,6 +25,7 @@ import com.nexustools.genericui.nativeimpl.form.TextInputNativeImpl
 import com.nexustools.genericui.nativeimpl.layout.ContainerNativeImpl
 import com.nexustools.genericui.nativeimpl.layout.DividerNativeImpl
 import com.nexustools.genericui.nativeimpl.layout.ScrollViewNativeImpl
+import com.nexustools.genericui.nativeimpl.layout.StyledContainerNativeImpl
 import com.nexustools.genericui.nativeimpl.lazy.LazyGridNativeImpl
 import com.nexustools.genericui.nativeimpl.lazy.LazyListNativeImpl
 import com.nexustools.genericui.nativeimpl.lazy.TreeViewNativeImpl
@@ -35,9 +37,7 @@ import com.nexustools.genericui.nativeimpl.shell.ContextMenuNativeImpl
 import com.nexustools.genericui.nativeimpl.shell.MenuBarNativeImpl
 import com.nexustools.genericui.nativeimpl.shell.MenuItemNativeImpl
 import com.nexustools.genericui.nativeimpl.shell.MenuNativeImpl
-import com.nexustools.genericui.nativeimpl.shell.SplitPaneNativeImpl
 import com.nexustools.genericui.nativeimpl.shell.WindowNativeImpl
-import com.nexustools.genericui.nativeimpl.surface.CollapseNativeImpl
 import com.nexustools.genericui.nativeimpl.system.NetworkMonitorNativeImpl
 import com.nexustools.genericui.nativeimpl.system.NotificationManagerNativeImpl
 import com.nexustools.genericui.nativeimpl.system.PermissionManagerNativeImpl
@@ -52,7 +52,11 @@ import com.nexustools.genericui.nativeimpl.typography.TextNativeImpl
  * to satisfy `FragmentContainer.resolveActiveFactory()` checks during headless lifecycle transitions.
  */
 internal object HeadlessLifecycleMarkerFactory : NativeFactory {
+    override val backendTarget: com.nexustools.genericui.enums.system.BackendTarget =
+        com.nexustools.genericui.enums.system.BackendTarget.Windows
     override val backendName: String = "headless-marker"
+    override fun supportsTcp(): Boolean = true
+    override fun supportsUdp(): Boolean = true
     private fun unsupported(): Nothing = throw UnsupportedOperationException("Headless marker factory")
     override fun createApplication(): ApplicationNativeImpl<*> = unsupported()
     override fun createWindow(): WindowNativeImpl<*> = unsupported()
@@ -60,7 +64,6 @@ internal object HeadlessLifecycleMarkerFactory : NativeFactory {
     override fun createMenu(): MenuNativeImpl<*> = unsupported()
     override fun createMenuItem(checkable: Boolean, radio: Boolean): MenuItemNativeImpl<*> = unsupported()
     override fun createContextMenu(): ContextMenuNativeImpl<*> = unsupported()
-    override fun createSplitPane(): SplitPaneNativeImpl<*> = unsupported()
     override fun createDockWorkspace(): DockWorkspaceNativeImpl<*> = unsupported()
     override fun createDockArea(): DockAreaNativeImpl<*> = unsupported()
     override fun createDockGroup(): DockGroupNativeImpl<*> = unsupported()
@@ -68,6 +71,7 @@ internal object HeadlessLifecycleMarkerFactory : NativeFactory {
     override fun createDockWindow(): DockWindowNativeImpl<*> = unsupported()
     override fun createToolPalette(): ToolPaletteNativeImpl<*> = unsupported()
     override fun createContainer(classPrefix: String): ContainerNativeImpl<*> = unsupported()
+    override fun createStyledContainer(classPrefix: String, tagName: String): StyledContainerNativeImpl<*> = unsupported()
     override fun createBookContainer(): BookContainerNativeImpl<*> = unsupported()
     override fun createScrollView(): ScrollViewNativeImpl<*> = unsupported()
     override fun createDivider(): DividerNativeImpl<*> = unsupported()
@@ -76,12 +80,12 @@ internal object HeadlessLifecycleMarkerFactory : NativeFactory {
     override fun createImage(): ImageNativeImpl<*> = unsupported()
     override fun createTable(): TableNativeImpl<*> = unsupported()
     override fun createButton(classPrefix: String): ButtonNativeImpl<*> = unsupported()
+    override fun createStyledButton(classPrefix: String): StyledButtonNativeImpl<*> = unsupported()
     override fun createDropdown(): DropdownNativeImpl<*> = unsupported()
     override fun createTextInput(multiline: Boolean): TextInputNativeImpl<*> = unsupported()
     override fun createSelect(): SelectNativeImpl<*> = unsupported()
     override fun createCheckbox(switchStyle: Boolean, radioStyle: Boolean): CheckboxNativeImpl<*> = unsupported()
     override fun createRangeSlider(): RangeSliderNativeImpl<*> = unsupported()
-    override fun createCollapse(): CollapseNativeImpl<*> = unsupported()
     override fun createTab(closable: Boolean): TabNativeImpl<*> = unsupported()
     override fun createTabContainer(): TabContainerNativeImpl<*> = unsupported()
     override fun createNavbar(): NavbarNativeImpl<*> = unsupported()

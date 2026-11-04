@@ -3,19 +3,20 @@ package com.nexustools.genericui.tests
 import com.nexustools.genericui.component.form.CheckBox
 import com.nexustools.genericui.component.form.Select
 import com.nexustools.genericui.component.form.Slider
+import com.nexustools.genericui.core.AbstractComponent
 
 /**
- * Robolectric / Compose-Testing style interaction handle for a queried GenericUI [Component].
+ * Robolectric / Compose-Testing style interaction handle for a queried GenericUI [AbstractComponent].
  *
  * Supports fluent assertions (`assertExists()`, `assertIsVisible()`, `assertTextEquals(...)`, etc.)
  * and simulated user actions (`performClick()`, `performHover()`, `performFocus()`, `performTypeText(...)`).
  */
 class RoboNodeInteraction(
-    val component: Component?,
+    val component: AbstractComponent?,
     private val runnerImpl: JestElectricRunnerNativeImpl,
     private val selectorDescription: String
 ) {
-    private fun requireNode(): Component =
+    private fun requireNode(): AbstractComponent =
         component ?: throw AssertionError("No component matched selector: $selectorDescription")
 
     fun assertExists(): RoboNodeInteraction {

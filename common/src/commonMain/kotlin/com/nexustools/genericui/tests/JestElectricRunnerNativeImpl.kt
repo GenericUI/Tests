@@ -1,6 +1,7 @@
 package com.nexustools.genericui.tests
 
 import com.nexustools.genericui.component.shell.Application
+import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.Disposable
 
 /**
@@ -52,22 +53,22 @@ interface JestElectricRunnerNativeImpl : Disposable {
     /**
      * Dispatches a native + logical click event to [component].
      */
-    fun performNativeClick(component: Component): Boolean
+    fun performNativeClick(component: AbstractComponent): Boolean
 
     /**
      * Dispatches a native + logical hover state change to [component].
      */
-    fun performNativeHover(component: Component): Boolean
+    fun performNativeHover(component: AbstractComponent): Boolean
 
     /**
      * Dispatches a native + logical focus event to [component].
      */
-    fun performNativeFocus(component: Component): Boolean
+    fun performNativeFocus(component: AbstractComponent): Boolean
 
     /**
      * Types [text] into a text-input [component] (`TextField` / `TextArea`) and fires change callbacks.
      */
-    fun performNativeTypeText(component: Component, text: String): Boolean
+    fun performNativeTypeText(component: AbstractComponent, text: String): Boolean
 
     /**
      * Invokes a top-level menu item matching [menuTitle] -> [itemLabel] on [app].

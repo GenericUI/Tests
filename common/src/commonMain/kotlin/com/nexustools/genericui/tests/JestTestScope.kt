@@ -2,6 +2,7 @@ package com.nexustools.genericui.tests
 
 import com.nexustools.genericui.component.fragment.Fragment
 import com.nexustools.genericui.component.shell.Application
+import com.nexustools.genericui.core.AbstractComponent
 
 /**
  * Receiver scope for individual `test(...)` / `it(...)` blocks inside a `JestElectricRunner` suite.
@@ -10,7 +11,7 @@ import com.nexustools.genericui.component.shell.Application
  * `launchApp(...)`, `launchFragment(...)`, `pumpMainLooper(...)`, and `advanceTimersByTime(...)`.
  */
 class JestTestScope(
-    val runnerImpl: JestElectricRunnerNativeImpl,
+    internal val runnerImpl: JestElectricRunnerNativeImpl,
     val visualOnWindows: Boolean = true
 ) {
     private val activeAppControllers = mutableListOf<RoboAppController<*>>()
@@ -24,7 +25,7 @@ class JestTestScope(
     /**
      * Creates a component expectation (`expectComponent(button).toBeVisible()`).
      */
-    fun expectComponent(component: Component?): RoboComponentExpectation =
+    fun expectComponent(component: AbstractComponent?): RoboComponentExpectation =
         RoboComponentExpectation(component)
 
     /**

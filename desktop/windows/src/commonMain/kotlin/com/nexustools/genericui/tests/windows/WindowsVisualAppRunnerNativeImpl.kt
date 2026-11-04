@@ -1,8 +1,8 @@
 package com.nexustools.genericui.tests.windows
 
 import com.nexustools.genericui.component.shell.Application
+import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.GenericUI
-import com.nexustools.genericui.tests.Component
 import com.nexustools.genericui.tests.desktop.DesktopSharedRunnerNativeImpl
 import com.nexustools.genericui.windows.Win32NativeWindowHost
 import com.nexustools.genericui.windows.WindowsApplicationNativeImpl
@@ -61,7 +61,7 @@ class WindowsVisualAppRunnerNativeImpl(
         }
     }
 
-    override fun performNativeClick(component: Component): Boolean {
+    override fun performNativeClick(component: AbstractComponent): Boolean {
         val ok = super.performNativeClick(component)
         if (ok && visualWindowEnabled) {
             Win32NativeWindowHost.invalidateAllWindows()
@@ -70,7 +70,7 @@ class WindowsVisualAppRunnerNativeImpl(
         return ok
     }
 
-    override fun performNativeHover(component: Component): Boolean {
+    override fun performNativeHover(component: AbstractComponent): Boolean {
         val ok = super.performNativeHover(component)
         if (ok && visualWindowEnabled) {
             Win32NativeWindowHost.invalidateAllWindows()
@@ -79,7 +79,7 @@ class WindowsVisualAppRunnerNativeImpl(
         return ok
     }
 
-    override fun performNativeFocus(component: Component): Boolean {
+    override fun performNativeFocus(component: AbstractComponent): Boolean {
         val ok = super.performNativeFocus(component)
         if (ok && visualWindowEnabled) {
             Win32NativeWindowHost.invalidateAllWindows()
@@ -88,7 +88,7 @@ class WindowsVisualAppRunnerNativeImpl(
         return ok
     }
 
-    override fun performNativeTypeText(component: Component, text: String): Boolean {
+    override fun performNativeTypeText(component: AbstractComponent, text: String): Boolean {
         val ok = super.performNativeTypeText(component, text)
         if (ok && visualWindowEnabled) {
             Win32NativeWindowHost.invalidateAllWindows()

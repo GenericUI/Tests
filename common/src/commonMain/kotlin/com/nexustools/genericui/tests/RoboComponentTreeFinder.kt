@@ -21,6 +21,7 @@ import com.nexustools.genericui.component.shell.Window
 import com.nexustools.genericui.component.tabs.Tab
 import com.nexustools.genericui.component.tabs.TabContainer
 import com.nexustools.genericui.component.typography.Label
+import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.AbstractContainer
 import com.nexustools.genericui.window.TitleBar
 
@@ -34,8 +35,8 @@ object RoboComponentTreeFinder {
      * Collects all components reachable from [app], including its `mainWindow`, window chrome
      * (`MenuBar`, `Navbar`, `BottomNavigationBar`, `TitleBar`), active `Fragment`, and dock/tab trees.
      */
-    fun collectFromApplication(app: Application): List<Component> {
-        val visited = LinkedHashSet<Component>()
+    fun collectFromApplication(app: Application): List<AbstractComponent> {
+        val visited = LinkedHashSet<AbstractComponent>()
         collectInto(app.mainWindow, visited)
         app.getContent()?.let { collectInto(it, visited) }
         if (app is FragmentApplication) {
@@ -48,21 +49,21 @@ object RoboComponentTreeFinder {
     /**
      * Collects all components reachable from [root].
      */
-    fun collectAllComponents(root: Component?): List<Component> {
+    fun collectAllComponents(root: AbstractComponent?): List<AbstractComponent> {
         if (root == null) return emptyList()
-        val visited = LinkedHashSet<Component>()
+        val visited = LinkedHashSet<AbstractComponent>()
         collectInto(root, visited)
         return visited.toList()
     }
 
-    private fun collectTitleBarComponents(titleBar: TitleBar?, visited: MutableSet<Component>) {
+    private fun collectTitleBarComponents(titleBar: TitleBar?, visited: MutableSet<AbstractComponent>) {
         if (titleBar == null) return
         titleBar.leadingComponents.forEach { collectInto(it, visited) }
         titleBar.centerComponents.forEach { collectInto(it, visited) }
         titleBar.trailingComponents.forEach { collectInto(it, visited) }
     }
 
-    private fun collectInto(node: Component?, visited: MutableSet<Component>) {
+    private fun collectInto(node: AbstractComponent?, visited: MutableSet<AbstractComponent>) {
         if (node == null || !visited.add(node)) return
 
         if (node is Window) {
@@ -146,7 +147,7 @@ object RoboComponentTreeFinder {
     /**
      * Extracts the primary human-readable text or label from [component].
      */
-    fun extractText(component: Component): String = when (component) {
+    fun extractText(component: AbstractComponent): String = when (component) {
         is Button -> component.text
         is Label -> component.text
         is TextField -> component.value.ifEmpty { component.placeholder }

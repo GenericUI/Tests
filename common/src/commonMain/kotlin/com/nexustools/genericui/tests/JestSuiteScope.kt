@@ -13,7 +13,8 @@ class JestSuiteScope(
     private val runnerImpl: JestElectricRunnerNativeImpl,
     private val visualOnWindows: Boolean = true,
     private val inheritedBeforeEach: List<JestTestScope.() -> Unit> = emptyList(),
-    private val inheritedAfterEach: List<JestTestScope.() -> Unit> = emptyList()
+    private val inheritedAfterEach: List<JestTestScope.() -> Unit> = emptyList(),
+    val perTestTimeoutMs: Long = 15_000L
 ) {
     private val beforeAllHooks = mutableListOf<() -> Unit>()
     private val afterAllHooks = mutableListOf<() -> Unit>()
@@ -53,7 +54,8 @@ class JestSuiteScope(
             runnerImpl = runnerImpl,
             visualOnWindows = visualOnWindows,
             inheritedBeforeEach = inheritedBeforeEach + beforeEachHooks,
-            inheritedAfterEach = afterEachHooks + inheritedAfterEach
+            inheritedAfterEach = afterEachHooks + inheritedAfterEach,
+            perTestTimeoutMs = perTestTimeoutMs
         )
         nestedScope.block()
         childSuites.add(nestedScope)
@@ -95,6 +97,11 @@ class JestSuiteScope(
                 }
 
                 val elapsedMs = mark.elapsedNow().inWholeMilliseconds
+                if (failure == null && perTestTimeoutMs > 0L && elapsedMs > perTestTimeoutMs) {
+                    failure = AssertionError(
+                        "Test '$fullLabel' exceeded timeout of ${perTestTimeoutMs}ms (took ${elapsedMs}ms)"
+                    )
+                }
                 if (failure == null) {
                     runnerImpl.updateVisualTestBanner(fullLabel, "PASS")
                     results.add(

@@ -5,6 +5,7 @@ import com.nexustools.genericui.component.form.CheckBox
 import com.nexustools.genericui.component.form.TextField
 import com.nexustools.genericui.component.shell.Application
 import com.nexustools.genericui.component.shell.FragmentApplication
+import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.GenericUI
 
 /**
@@ -34,11 +35,8 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
         val factory = GenericUI.activeFactory
         if (factory != null) {
             app.run(factory)
-        } else {
-            app.mainWindow.show(null)
-            if (app is FragmentApplication) {
-                app.rootFragmentContainer.ensureActiveFragmentStartedAndResumed()
-            }
+        } else if (app is FragmentApplication) {
+            app.rootFragmentContainer.ensureActiveFragmentStartedAndResumed()
         }
         pumpUiEvents(16L)
     }
@@ -55,7 +53,7 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
         }
     }
 
-    override fun performNativeClick(component: Component): Boolean {
+    override fun performNativeClick(component: AbstractComponent): Boolean {
         if (!component.isEnabled || !component.isVisible) return false
         when (component) {
             is CheckBox -> {
@@ -63,7 +61,7 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
                 component.onClick?.invoke()
             }
             is Button -> {
-                component.click()
+                component.onClick?.invoke()
             }
             else -> {
                 component.onClick?.invoke()
@@ -73,21 +71,21 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
         return true
     }
 
-    override fun performNativeHover(component: Component): Boolean {
+    override fun performNativeHover(component: AbstractComponent): Boolean {
         if (!component.isVisible) return false
         component.isHovered = true
         pumpUiEvents(16L)
         return true
     }
 
-    override fun performNativeFocus(component: Component): Boolean {
+    override fun performNativeFocus(component: AbstractComponent): Boolean {
         if (!component.isEnabled || !component.isVisible) return false
         component.isFocused = true
         pumpUiEvents(16L)
         return true
     }
 
-    override fun performNativeTypeText(component: Component, text: String): Boolean {
+    override fun performNativeTypeText(component: AbstractComponent, text: String): Boolean {
         if (!component.isEnabled || !component.isVisible) return false
         if (component is TextField) {
             if (component.isReadOnly) return false

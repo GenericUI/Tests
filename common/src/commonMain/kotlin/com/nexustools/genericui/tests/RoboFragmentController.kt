@@ -4,6 +4,7 @@ import com.nexustools.genericui.component.action.Button
 import com.nexustools.genericui.component.fragment.Fragment
 import com.nexustools.genericui.component.fragment.FragmentContainer
 import com.nexustools.genericui.component.shell.Window
+import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.NativeFactory
 import com.nexustools.genericui.enums.fragment.FragmentState
 
@@ -135,6 +136,6 @@ class RoboFragmentController<F : Fragment>(
     fun findAllButtons(): List<Button> =
         findAllComponents().filterIsInstance<Button>()
 
-    fun findAllComponents(): List<Component> =
+    fun findAllComponents(): List<AbstractComponent> =
         RoboComponentTreeFinder.collectAllComponents(fragment)
 }

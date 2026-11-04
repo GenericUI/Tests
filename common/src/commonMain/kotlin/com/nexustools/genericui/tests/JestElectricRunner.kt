@@ -29,13 +29,15 @@ object JestElectricRunner {
         suiteName: String,
         visualOnWindows: Boolean = true,
         throwOnFailure: Boolean = true,
+        perTestTimeoutMs: Long = 15_000L,
         runnerImpl: JestElectricRunnerNativeImpl = JestElectricNativeRegistry.current(),
         block: JestSuiteScope.() -> Unit
     ): JestSuiteReport {
         val rootScope = JestSuiteScope(
             suitePath = suiteName,
             runnerImpl = runnerImpl,
-            visualOnWindows = visualOnWindows
+            visualOnWindows = visualOnWindows,
+            perTestTimeoutMs = perTestTimeoutMs
         )
         rootScope.block()
         val results = mutableListOf<JestTestResult>()

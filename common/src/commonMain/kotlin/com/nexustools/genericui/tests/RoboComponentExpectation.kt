@@ -1,13 +1,14 @@
 package com.nexustools.genericui.tests
 
 import com.nexustools.genericui.component.form.CheckBox
+import com.nexustools.genericui.core.AbstractComponent
 
 /**
- * Jest + Testing-Library style matcher for GenericUI [Component] instances
+ * Jest + Testing-Library style matcher for GenericUI [AbstractComponent] instances
  * (`expectComponent(node).toBeVisible()`, `toBeEnabled()`, `toHaveText(...)`, `toHaveClass(...)`, etc.).
  */
 class RoboComponentExpectation(
-    private val component: Component?,
+    private val component: AbstractComponent?,
     private val inverted: Boolean = false
 ) {
     /**
@@ -25,7 +26,7 @@ class RoboComponentExpectation(
         }
     }
 
-    private fun requireComponent(): Component =
+    private fun requireComponent(): AbstractComponent =
         component ?: throw AssertionError("Expected component to exist in tree, but it was <null>.")
 
     fun toExist() {

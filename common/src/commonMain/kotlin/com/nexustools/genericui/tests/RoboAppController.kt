@@ -2,6 +2,7 @@ package com.nexustools.genericui.tests
 
 import com.nexustools.genericui.component.action.Button
 import com.nexustools.genericui.component.shell.Application
+import com.nexustools.genericui.core.AbstractComponent
 
 /**
  * Robolectric-inspired lifecycle and UI interaction controller for a GenericUI [Application]
@@ -129,9 +130,9 @@ class RoboAppController<A : Application>(
         findAllComponents().filterIsInstance<Button>()
 
     /**
-     * Returns all [Component] instances currently reachable in the application tree.
+     * Returns all [AbstractComponent] instances currently reachable in the application tree.
      */
-    fun findAllComponents(): List<Component> =
+    fun findAllComponents(): List<AbstractComponent> =
         RoboComponentTreeFinder.collectFromApplication(app)
 
     /**
