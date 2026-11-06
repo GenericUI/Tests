@@ -6,9 +6,11 @@ import com.nexustools.genericui.component.fragment.Fragment
 import com.nexustools.genericui.component.fragment.FragmentBundle
 import com.nexustools.genericui.component.shell.FragmentApplication
 import com.nexustools.genericui.component.typography.Text
+import com.nexustools.genericui.desktop.core.DesktopNativeWidget
 import com.nexustools.genericui.tests.JestElectricRunner
 import com.nexustools.genericui.windows.Win32NativeWindowHost
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -66,5 +68,29 @@ class WindowsVisualRunnerTest {
         }
 
         assertTrue(report.allPassed)
+    }
+
+    @Test
+    fun testVBlankRegistrationAndVisualOnlyInvalidationAndFrameMetrics() {
+        val w = DesktopNativeWidget(tag = "canvas")
+        var vblankTicks = 0
+        val callback: (Double?) -> Unit = { vblankTicks++ }
+        w.attributes["vblankDispatch"] = callback
+        assertTrue(w in DesktopNativeWidget.activeVBlankWidgetsSnapshot())
+
+        val initialSubtreeVer = w.subtreeMutationVersion
+        val initialGlobalVer = DesktopNativeWidget.globalNonOverlayMutationVersion
+        w.notifyTreeInvalidated(visualOnly = true)
+        assertEquals(initialSubtreeVer, w.subtreeMutationVersion)
+        assertEquals(initialGlobalVer, DesktopNativeWidget.globalNonOverlayMutationVersion)
+
+        w.disposed = true
+        assertTrue(w !in DesktopNativeWidget.activeVBlankWidgetsSnapshot())
+
+        Win32NativeWindowHost.resetFrameMetrics()
+        val snap = Win32NativeWindowHost.getFrameMetricsSnapshot()
+        assertEquals(0, snap.totalPaints)
+        assertEquals(0, snap.videoStageOnlyPaints)
+        assertEquals(0, snap.fullWindowPaints)
     }
 }
