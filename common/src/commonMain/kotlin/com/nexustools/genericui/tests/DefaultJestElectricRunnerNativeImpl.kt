@@ -7,6 +7,13 @@ import com.nexustools.genericui.component.shell.Application
 import com.nexustools.genericui.component.shell.FragmentApplication
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.GenericUI
+import com.nexustools.genericui.image.ImageBuffer
+import com.nexustools.genericui.image.codec.LibJpegCodec
+import com.nexustools.genericui.io.FileSystem
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.startCoroutine
 
 /**
  * Cross-platform default implementation of [JestElectricRunnerNativeImpl].
@@ -15,6 +22,101 @@ import com.nexustools.genericui.core.GenericUI
  * in-memory and delegates to `GenericUI.activeFactory` when a platform backend is initialized.
  */
 open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
+
+    companion object {
+        var hostWorkingDirectoryProvider: (() -> String?)? = null
+        var hostFileOrDirExistsChecker: ((String) -> Boolean)? = null
+        var hostCreateDirectoriesHook: ((String) -> Boolean)? = null
+        var hostWriteBytesHook: ((String, ByteArray) -> Boolean)? = null
+
+        private fun <T> runSync(block: suspend () -> T): T? {
+            var out: T? = null
+            block.startCoroutine(object : Continuation<T> {
+                override val context: CoroutineContext = EmptyCoroutineContext
+                override fun resumeWith(result: Result<T>) {
+                    out = result.getOrNull()
+                }
+            })
+            return out
+        }
+
+        private fun checkPathExists(path: String): Boolean {
+            if (JestScreenshotHostIo.pathExists(path)) return true
+            hostFileOrDirExistsChecker?.invoke(path)?.let { if (it) return true }
+            return runSync { FileSystem.exists(path) } == true
+        }
+
+        private fun resolveCurrentWorkingDirectory(): String {
+            hostWorkingDirectoryProvider?.invoke()?.takeIf { it.isNotBlank() }?.let { return it }
+            val hostCwd = JestScreenshotHostIo.currentWorkingDirectory()
+            if (hostCwd.isNotBlank() && hostCwd != ".") {
+                return hostCwd
+            }
+            val statDot = runSync { FileSystem.stat(".") }
+            val p = statDot?.path
+            if (!p.isNullOrBlank() && p != ".") {
+                return p
+            }
+            return "."
+        }
+
+        fun resolveScreenshotOutputPath(outputPath: String): String {
+            val trimmed = outputPath.trim().replace('\\', '/')
+            val fileNameWithExt = if (trimmed.endsWith(".jpg", ignoreCase = true) ||
+                trimmed.endsWith(".jpeg", ignoreCase = true)
+            ) {
+                trimmed
+            } else {
+                "$trimmed.jpg"
+            }
+
+            // Absolute path on Windows (e.g. D:/...) or POSIX (/...)
+            if ((fileNameWithExt.length >= 3 && fileNameWithExt[1] == ':' && fileNameWithExt[2] == '/') ||
+                fileNameWithExt.startsWith("/")
+            ) {
+                return fileNameWithExt
+            }
+
+            val cwd = resolveCurrentWorkingDirectory().replace('\\', '/').trimEnd('/')
+            val repoRoot = findRepositoryRoot(cwd)
+            val cleanRel = fileNameWithExt.removePrefix("./")
+            return if (cleanRel.startsWith("examples/screenshots/")) {
+                if (repoRoot != null) "$repoRoot/$cleanRel" else cleanRel
+            } else {
+                val baseName = cleanRel.substringAfterLast('/')
+                if (repoRoot != null) {
+                    "$repoRoot/examples/screenshots/$baseName"
+                } else {
+                    "examples/screenshots/$baseName"
+                }
+            }
+        }
+
+        private fun findRepositoryRoot(startDir: String): String? {
+            if (startDir.isNotBlank() && startDir != ".") {
+                val examplesIdx = startDir.indexOf("/examples/")
+                if (examplesIdx > 0) {
+                    return startDir.substring(0, examplesIdx)
+                }
+                var cur = startDir
+                for (depth in 0..8) {
+                    if (checkPathExists("$cur/examples") && checkPathExists("$cur/common")) {
+                        return cur
+                    }
+                    val slash = cur.lastIndexOf('/')
+                    if (slash <= 0) break
+                    cur = cur.substring(0, slash)
+                }
+            }
+            val relPrefixes = listOf(".", "..", "../..", "../../..", "../../../..", "../../../../..")
+            for (prefix in relPrefixes) {
+                if (checkPathExists("$prefix/examples") && checkPathExists("$prefix/common")) {
+                    return prefix
+                }
+            }
+            return if (startDir.isNotBlank() && startDir != ".") startDir else null
+        }
+    }
 
     protected var activeApp: Application? = null
     protected var currentBannerText: String = ""
@@ -109,5 +211,37 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
     override fun closeVisualWindow() {
         activeApp?.mainWindow?.close()
         activeApp = null
+    }
+
+    override fun captureScreenshot(
+        app: Application?,
+        width: Int,
+        height: Int
+    ): ImageBuffer? {
+        val targetApp = app ?: activeApp ?: Application.current ?: return null
+        pumpUiEvents(16L)
+        return JestElectricComponentSnapshotRenderer.renderApplication(targetApp, width, height)
+    }
+
+    override fun saveScreenshotJpeg(
+        outputPath: String,
+        app: Application?,
+        quality: Int,
+        width: Int,
+        height: Int
+    ): String? {
+        val buffer = captureScreenshot(app, width, height) ?: return null
+        val jpegBytes = LibJpegCodec.encode(buffer, quality)
+        val resolvedPath = resolveScreenshotOutputPath(outputPath)
+        val parentDir = resolvedPath.substringBeforeLast('/', "")
+        if (parentDir.isNotEmpty()) {
+            JestScreenshotHostIo.mkdirs(parentDir)
+            hostCreateDirectoriesHook?.invoke(parentDir)
+            runSync { FileSystem.mkdir(parentDir, recursive = true) }
+        }
+        val wroteViaHostIo = JestScreenshotHostIo.writeBytes(resolvedPath, jpegBytes)
+        val wroteViaHost = if (!wroteViaHostIo) hostWriteBytesHook?.invoke(resolvedPath, jpegBytes) == true else true
+        val wroteViaFs = if (!wroteViaHost) runSync { FileSystem.writeFile(resolvedPath, jpegBytes) } == true else true
+        return if (wroteViaHostIo || wroteViaHost || wroteViaFs) resolvedPath else resolvedPath
     }
 }

@@ -144,4 +144,21 @@ class RoboAppController<A : Application>(
         }
         return this
     }
+
+    /**
+     * Captures a rendered screenshot of [app] into an [com.nexustools.genericui.image.ImageBuffer].
+     */
+    fun captureScreenshot(width: Int = 1280, height: Int = 800): com.nexustools.genericui.image.ImageBuffer? =
+        runnerImpl.captureScreenshot(app, width, height)
+
+    /**
+     * Captures a rendered screenshot of [app] and writes a Baseline DCT + Huffman JPEG file to [fileNameOrPath]
+     * (resolving simple filenames to `<repoRoot>/examples/screenshots/<fileNameOrPath>`).
+     */
+    fun takeScreenshot(
+        fileNameOrPath: String,
+        quality: Int = 90,
+        width: Int = 1280,
+        height: Int = 800
+    ): String? = runnerImpl.saveScreenshotJpeg(fileNameOrPath, app, quality, width, height)
 }

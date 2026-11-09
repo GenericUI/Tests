@@ -9,17 +9,17 @@ The `:tests` module hierarchy provides `JestElectricRunner` — a Robolectric + 
 
 ```text
 :tests                        # Aggregator & cross-platform verification suites
-├── :tests:common             # JestElectricRunner, UiTestContext, WidgetMatcher, AssertionScope, MockSystemServices
+├── :tests:common             # JestElectricRunner, UiTestContext, WidgetMatcher, AssertionScope, MockSystemServices, + 12 modular JestElectric*RenderUtil classes
 ├── :tests:desktop:nativeCommon # Native desktop test harness helpers (Win32, macOS, GTK, Qt)
-├── :tests:desktop:windows    # Windows native (mingwX64) test runner + UxTheme / WindowsCurCodec + optional HWND visual mode
-├── :tests:desktop:macos      # macOS native (macosX64, macosArm64) test runner + MacosCursorTranslator verification
-├── :tests:desktop:gtk        # Linux GTK (linuxX64) test runner
-├── :tests:desktop:qt         # Linux Qt (linuxX64) test runner
-├── :tests:desktop:swing      # JVM Swing test runner
+├── :tests:desktop:windows    # Windows native (mingwX64) test runner + 12 Win32*RenderUtil / 36 Windows*NativeImpl + WindowsCurCodec + optional HWND visual mode
+├── :tests:desktop:macos      # macOS native (macosX64, macosArm64) test runner + MacosControlRenderUtil + MacosCursorTranslator verification
+├── :tests:desktop:gtk        # Linux GTK (linuxX64) test runner + GtkControlRenderUtil verification
+├── :tests:desktop:qt         # Linux Qt (linuxX64) test runner + QtControlRenderUtil verification
+├── :tests:desktop:swing      # JVM Swing test runner + DesktopControlTintRenderUtil offscreen native Laf sprite tinting verification
 ├── :tests:mobile:common      # Mobile test harness helpers (Android & iOS)
-├── :tests:mobile:android     # Android test runner (Activity / View hierarchy inspection)
+├── :tests:mobile:android     # Android test runner (Activity / View hierarchy, Material ThemeConfig, & offscreen Drawable sprite tinting inspection)
 ├── :tests:mobile:ios         # iOS (iosX64, iosArm64, iosSimulatorArm64) test runner
-└── :tests:web                # Web (js, wasmJs) virtual DOM, WebDomElement class isolation, WebStyleSheetManager & History test runner
+└── :tests:web                # Web (js, wasmJs) virtual DOM, WebDomElement class isolation, WebCssStyleTranslator, WebStyleSheetManager, ThemeConfig CSS & History test runner
 ```
 
 ---

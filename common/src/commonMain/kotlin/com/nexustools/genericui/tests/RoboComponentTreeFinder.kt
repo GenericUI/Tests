@@ -1,6 +1,7 @@
 package com.nexustools.genericui.tests
 
 import com.nexustools.genericui.component.action.Button
+import com.nexustools.genericui.component.dialog.DialogWindow
 import com.nexustools.genericui.component.dock.DockArea
 import com.nexustools.genericui.component.dock.DockGroup
 import com.nexustools.genericui.component.dock.DockPanel
@@ -72,6 +73,13 @@ object RoboComponentTreeFinder {
             node.getNavBar()?.let { collectInto(it, visited) }
             node.getBottomNavigationBar()?.let { collectInto(it, visited) }
             collectTitleBarComponents(node.getTitleBar(), visited)
+            node.attachedDialogWindows.forEach { if (it.isVisible) collectInto(it, visited) }
+            node.attachedPanelWindows.forEach { if (it.isVisible) collectInto(it, visited) }
+        }
+
+        if (node is DialogWindow) {
+            node.getContent()?.let { collectInto(it, visited) }
+            collectTitleBarComponents(node.getTitleBar(), visited)
         }
 
         if (node is Fragment) {
@@ -79,6 +87,13 @@ object RoboComponentTreeFinder {
             node.getNavBar()?.let { collectInto(it, visited) }
             node.getBottomNavigationBar()?.let { collectInto(it, visited) }
             collectTitleBarComponents(node.getTitleBar(), visited)
+            val hostWin = (node.hostingWindow as? Window)
+                ?: node.attachedWindow
+                ?: ((node.parent as? FragmentContainer)?.hostingIWindow as? Window)
+                ?: (node.parent?.parent as? Window)
+                ?: Application.current?.mainWindow
+            hostWin?.attachedDialogWindows?.forEach { if (it.isVisible) collectInto(it, visited) }
+            hostWin?.attachedPanelWindows?.forEach { if (it.isVisible) collectInto(it, visited) }
         }
 
         if (node is FragmentContainer) {
@@ -142,6 +157,18 @@ object RoboComponentTreeFinder {
         if (node is AbstractContainer) {
             node.children.forEach { collectInto(it, visited) }
         }
+    }
+
+    /**
+     * Returns `true` if [component] and all of its ancestor components have `isVisible == true`.
+     */
+    fun isEffectivelyVisible(component: AbstractComponent): Boolean {
+        var cur: AbstractComponent? = component
+        while (cur != null) {
+            if (!cur.isVisible) return false
+            cur = cur.parent
+        }
+        return true
     }
 
     /**

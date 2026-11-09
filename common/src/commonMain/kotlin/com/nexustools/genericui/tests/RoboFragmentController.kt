@@ -3,6 +3,7 @@ package com.nexustools.genericui.tests
 import com.nexustools.genericui.component.action.Button
 import com.nexustools.genericui.component.fragment.Fragment
 import com.nexustools.genericui.component.fragment.FragmentContainer
+import com.nexustools.genericui.component.shell.Application
 import com.nexustools.genericui.component.shell.Window
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.NativeFactory
@@ -97,8 +98,32 @@ class RoboFragmentController<F : Fragment>(
         return this
     }
 
+    private fun collectOpenDialogComponents(): List<AbstractComponent> {
+        val dialogs = LinkedHashSet<com.nexustools.genericui.component.dialog.DialogWindow>()
+        hostWindow.attachedDialogWindows.filter { it.isVisible }.asReversed().forEach { dialogs.add(it) }
+        Application.current?.mainWindow?.attachedDialogWindows?.filter { it.isVisible }?.asReversed()?.forEach { dialogs.add(it) }
+        if (dialogs.isEmpty()) return emptyList()
+        val visited = LinkedHashSet<AbstractComponent>()
+        for (dialog in dialogs) {
+            RoboComponentTreeFinder.collectAllComponents(dialog).forEach { visited.add(it) }
+        }
+        return visited.toList()
+    }
+
+    private fun findMatchingComponent(predicate: (AbstractComponent) -> Boolean): AbstractComponent? {
+        val openDialogComponents = collectOpenDialogComponents()
+        openDialogComponents.firstOrNull { RoboComponentTreeFinder.isEffectivelyVisible(it) && predicate(it) }
+            ?.let { return it }
+
+        val all = findAllComponents()
+        all.firstOrNull { RoboComponentTreeFinder.isEffectivelyVisible(it) && predicate(it) }
+            ?.let { return it }
+
+        return all.firstOrNull(predicate)
+    }
+
     fun findById(id: String): RoboNodeInteraction {
-        val node = findAllComponents().firstOrNull { it.id == id }
+        val node = findMatchingComponent { it.id == id }
         return RoboNodeInteraction(node, runnerImpl, "id='$id'")
     }
 
@@ -107,7 +132,7 @@ class RoboFragmentController<F : Fragment>(
         substring: Boolean = false,
         ignoreCase: Boolean = true
     ): RoboNodeInteraction {
-        val node = findAllComponents().firstOrNull { comp ->
+        val node = findMatchingComponent { comp ->
             val extracted = RoboComponentTreeFinder.extractText(comp)
             if (extracted.isEmpty()) {
                 false
@@ -121,13 +146,13 @@ class RoboFragmentController<F : Fragment>(
     }
 
     fun findByClass(cssClass: String): RoboNodeInteraction {
-        val node = findAllComponents().firstOrNull { it.hasClass(cssClass) }
+        val node = findMatchingComponent { it.hasClass(cssClass) }
         return RoboNodeInteraction(node, runnerImpl, "class='$cssClass'")
     }
 
     fun findByTooltip(tooltip: String, substring: Boolean = true): RoboNodeInteraction {
-        val node = findAllComponents().firstOrNull { comp ->
-            val t = comp.tooltipText ?: return@firstOrNull false
+        val node = findMatchingComponent { comp ->
+            val t = comp.tooltipText ?: return@findMatchingComponent false
             if (substring) t.contains(tooltip, ignoreCase = true) else t == tooltip
         }
         return RoboNodeInteraction(node, runnerImpl, "tooltip='$tooltip'")
@@ -136,6 +161,10 @@ class RoboFragmentController<F : Fragment>(
     fun findAllButtons(): List<Button> =
         findAllComponents().filterIsInstance<Button>()
 
-    fun findAllComponents(): List<AbstractComponent> =
-        RoboComponentTreeFinder.collectAllComponents(fragment)
+    fun findAllComponents(): List<AbstractComponent> {
+        val visited = LinkedHashSet<AbstractComponent>()
+        RoboComponentTreeFinder.collectAllComponents(fragment).forEach { visited.add(it) }
+        collectOpenDialogComponents().forEach { visited.add(it) }
+        return visited.toList()
+    }
 }

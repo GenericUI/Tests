@@ -80,6 +80,33 @@ interface JestElectricRunnerNativeImpl : Disposable {
      */
     fun closeVisualWindow()
 
+    /**
+     * Returns `true` when screenshot capture is supported by this runner implementation.
+     */
+    val isScreenshotSupported: Boolean
+        get() = true
+
+    /**
+     * Captures a rendered screenshot of [app] (or the active application) as an [com.nexustools.genericui.image.ImageBuffer].
+     */
+    fun captureScreenshot(
+        app: Application? = null,
+        width: Int = 1280,
+        height: Int = 800
+    ): com.nexustools.genericui.image.ImageBuffer? = null
+
+    /**
+     * Captures a rendered screenshot of [app] (or the active application) and saves it as a standard
+     * Baseline DCT + Huffman JFIF/JPEG file at [outputPath] (or under `examples/screenshots/` when relative).
+     */
+    fun saveScreenshotJpeg(
+        outputPath: String,
+        app: Application? = null,
+        quality: Int = 90,
+        width: Int = 1280,
+        height: Int = 800
+    ): String? = null
+
     override fun dispose() {
         closeVisualWindow()
     }

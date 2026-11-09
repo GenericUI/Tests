@@ -82,6 +82,29 @@ class JestTestScope(
         runnerImpl.pumpUiEvents(deltaMs)
     }
 
+    /**
+     * Captures a rendered screenshot of [app] (or the most recently launched application) into an [com.nexustools.genericui.image.ImageBuffer].
+     */
+    fun captureScreenshot(
+        app: Application? = activeAppControllers.lastOrNull()?.app,
+        width: Int = 1280,
+        height: Int = 800
+    ): com.nexustools.genericui.image.ImageBuffer? =
+        runnerImpl.captureScreenshot(app, width, height)
+
+    /**
+     * Captures a rendered screenshot of [app] (or the most recently launched application) and saves it as a
+     * Baseline DCT + Huffman JPEG file at [fileNameOrPath] (or `<repoRoot>/examples/screenshots/<fileNameOrPath>`).
+     */
+    fun takeScreenshot(
+        fileNameOrPath: String,
+        app: Application? = activeAppControllers.lastOrNull()?.app,
+        quality: Int = 90,
+        width: Int = 1280,
+        height: Int = 800
+    ): String? =
+        runnerImpl.saveScreenshotJpeg(fileNameOrPath, app, quality, width, height)
+
     internal fun cleanupTestResources() {
         for (fragController in activeFragmentControllers.asReversed()) {
             runCatching { fragController.destroy() }
