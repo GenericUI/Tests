@@ -258,7 +258,7 @@ object JestElectricNavigationRenderUtil {
         JestElectricControlTintRenderUtil.fillRect(ctx.buffer, x, y, w, h, ctx.bgSurface)
         JestElectricControlTintRenderUtil.drawHLine(ctx.buffer, x, x + w, y + h - 1, ctx.borderSubtle)
         var curX = x + 14
-        if (navBar.brandTitle.isNotEmpty()) {
+        if (navBar.isBrandVisible && navBar.brandTitle.isNotEmpty()) {
             JestElectricControlTintRenderUtil.drawText(ctx.buffer, curX, y + 13, navBar.brandTitle, ctx.accent, 2)
             curX += JestElectricControlTintRenderUtil.measureTextWidth(navBar.brandTitle, 2) + 20
         }
