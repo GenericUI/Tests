@@ -18,11 +18,11 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
 import platform.posix._getcwd
-import platform.posix._mkdir
 import platform.posix.access
 import platform.posix.fclose
 import platform.posix.fopen
 import platform.posix.fwrite
+import platform.windows.CreateDirectoryA
 
 @EagerInitialization
 private val windowsScreenshotHostHooksInit: Boolean = WindowsVisualAppRunnerNativeImpl.installHostFileHooks()
@@ -59,7 +59,7 @@ class WindowsVisualAppRunnerNativeImpl(
                     if (part.isEmpty()) continue
                     current = if (current.isEmpty()) part else "$current/$part"
                     if (current.length == 2 && current[1] == ':') continue
-                    _mkdir(current.replace('/', '\\'))
+                    CreateDirectoryA(current.replace('/', '\\'), null)
                 }
                 true
             }

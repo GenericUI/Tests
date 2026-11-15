@@ -5,6 +5,7 @@ package com.nexustools.genericui.tests
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.allocArray
+import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
@@ -19,7 +20,7 @@ import platform.posix.system
 actual object JestScreenshotHostIo {
     actual fun currentWorkingDirectory(): String = memScoped {
         val buf = allocArray<ByteVar>(4096)
-        getcwd(buf, 4096u)?.toKString() ?: "."
+        getcwd(buf, 4096.convert())?.toKString() ?: "."
     }
 
     actual fun pathExists(path: String): Boolean =
