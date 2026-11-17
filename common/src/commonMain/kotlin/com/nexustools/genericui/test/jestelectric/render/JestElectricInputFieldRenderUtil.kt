@@ -133,6 +133,34 @@ object JestElectricInputFieldRenderUtil {
             color = fg,
             scale = 1
         )
+        drawTopBorderCaption(ctx, x, fy, w, comp)
+    }
+
+    private fun drawTopBorderCaption(
+        ctx: JestElectricRenderContext,
+        x: Int,
+        topY: Int,
+        w: Int,
+        comp: TextField
+    ) {
+        val clean = comp.label?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        if (w < 24) return
+        val maxChars = ((w - 20).coerceAtLeast(0)) / 6
+        if (maxChars <= 0) return
+        val shown = if (clean.length > maxChars) clean.substring(0, maxChars) else clean
+        val capX = x + 8
+        val spanW = shown.length * 6 + 4
+        val maskColor = if (ctx.isDark) com.nexustools.genericui.style.color.RgbaColor(13, 20, 36) else com.nexustools.genericui.style.color.RgbaColor(248, 250, 252)
+        JestElectricControlTintRenderUtil.fillRect(ctx.buffer, capX - 2, topY - 1, spanW + 4, 3, maskColor)
+        JestElectricControlTintRenderUtil.drawTextClipped(
+            buf = ctx.buffer,
+            x = capX,
+            y = (topY - 3).coerceAtLeast(0),
+            maxW = spanW,
+            text = shown,
+            color = if (comp.isFocused) ctx.resolveBootstrapColor(BootstrapType.PRIMARY) else ctx.textSecondary,
+            scale = 1
+        )
     }
 
     private fun renderSearchField(
@@ -293,5 +321,6 @@ object JestElectricInputFieldRenderUtil {
             color = fg,
             scale = 1
         )
+        drawTopBorderCaption(ctx, x, y, w, comp)
     }
 }
