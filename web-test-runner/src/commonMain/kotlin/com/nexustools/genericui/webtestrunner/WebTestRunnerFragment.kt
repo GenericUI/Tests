@@ -21,8 +21,8 @@ import com.nexustools.genericui.tests.JestSuiteReport
  * Primary `@MainAppFragment` for the **GenericUI Web Test Runner** native desktop application.
  *
  * Configured strictly for native desktop backends (`backends { allNativeDesktop() }`:
- * `:windows`, `:macos`, `:gtk`, `:qt`) and uses `:extensions:webview` ([WebView]) and its
- * communication functions to load and test GenericUI web builds.
+ * Windows, macOS, GTK, Qt) and uses the GenericUI WebView extension (`extensions { webView() }`,
+ * [WebView]) and its communication functions to load and test GenericUI web builds.
  */
 @MainAppFragment
 class WebTestRunnerFragment : Fragment() {
