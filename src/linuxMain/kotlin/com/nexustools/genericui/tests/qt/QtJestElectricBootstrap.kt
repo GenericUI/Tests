@@ -1,8 +1,6 @@
 package com.nexustools.genericui.tests.qt
 
-import com.nexustools.genericui.enums.system.BackendTarget
 import com.nexustools.genericui.tests.JestElectricNativeRegistry
-import com.nexustools.genericui.tests.gtk.GtkJestElectricRunnerNativeImpl
 
 /**
  * Bootstrapper that installs [QtJestElectricRunnerNativeImpl] into [JestElectricNativeRegistry]
@@ -17,9 +15,6 @@ object QtJestElectricBootstrap {
         val impl = QtJestElectricRunnerNativeImpl()
         impl.ensureBackendInitialized()
         JestElectricNativeRegistry.register(impl)
-        if (JestElectricNativeRegistry.forTarget(BackendTarget.Gtk) == null) {
-            JestElectricNativeRegistry.registerTarget(BackendTarget.Gtk, GtkJestElectricRunnerNativeImpl())
-        }
         return impl
     }
 
