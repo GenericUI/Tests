@@ -1,85 +1,90 @@
-# `:tests` — Multiplatform Testing & `JestElectricRunner`
+# `:tests` — Consolidated Multiplatform Testing & `JestElectricRunner`
+
+> **Root Repository**: [**GenericUI (`../README.md`)**](../README.md) | **Master Docs**: [**`docs/testing.md`**](../docs/testing.md) · [**`docs/backends.md`**](../docs/backends.md)
 
 ## Overview
-The `:tests` module hierarchy provides `JestElectricRunner` — a Robolectric + Jest inspired multiplatform UI testing framework — along with platform-specific test runner backends covering every GenericUI target (`:desktop:windows`, `:desktop:macos`, `:desktop:gtk`, `:desktop:qt`, `:desktop:swing`, `:mobile:android`, `:mobile:ios`, and `:web`).
+The **`:tests`** module ([`build.gradle.kts`](build.gradle.kts)) is a **single consolidated KMP module** (covering all 10 Kotlin targets and all 9 platform backends without child Gradle subprojects). It hosts **`JestElectricRunner`** — combining **Jest-style BDD syntax** (`describe`, `beforeEach`, `afterEach`, `test`, `it`, `expect`, `runSuite`) with **Robolectric-style lifecycle/node controllers** (`RoboAppController`, `RoboFragmentController`, `RoboNodeInteraction`, `RoboComponentExpectation`).
 
 ---
 
-## Module Hierarchy
+## SourceSet Architecture inside `:tests`
 
-```text
-:tests                        # Aggregator & cross-platform verification suites
-├── :tests:common             # JestElectricRunner, UiTestContext, WidgetMatcher, AssertionScope, MockSystemServices, + 12 modular JestElectric*RenderUtil classes
-├── :tests:desktop:nativeCommon # Native desktop test harness helpers (Win32, macOS, GTK, Qt)
-├── :tests:desktop:windows    # Windows native (mingwX64) test runner + 12 Win32*RenderUtil / 36 Windows*NativeImpl + WindowsCurCodec + optional HWND visual mode
-├── :tests:desktop:macos      # macOS native (macosX64, macosArm64) test runner + MacosControlRenderUtil + MacosCursorTranslator verification
-├── :tests:desktop:gtk        # Linux GTK (linuxX64) test runner + GtkControlRenderUtil verification
-├── :tests:desktop:qt         # Linux Qt (linuxX64) test runner + QtControlRenderUtil verification
-├── :tests:desktop:swing      # JVM Swing test runner + DesktopControlTintRenderUtil offscreen native Laf sprite tinting verification
-├── :tests:mobile:common      # Mobile test harness helpers (Android & iOS)
-├── :tests:mobile:android     # Android test runner (Activity / View hierarchy, Material ThemeConfig, & offscreen Drawable sprite tinting inspection)
-├── :tests:mobile:ios         # iOS (iosX64, iosArm64, iosSimulatorArm64) test runner
-└── :tests:web                # Web (js, wasmJs) virtual DOM, WebDomElement class isolation, WebCssStyleTranslator, WebStyleSheetManager, ThemeConfig CSS & History test runner
-```
+| `:tests` Source Set | Linked Backend Scope | Key Test Runner & Infrastructure |
+|---------------------|----------------------|----------------------------------|
+| **`commonMain` / `commonTest`** | `:common` | [`JestElectricRunner`](src/commonMain/kotlin/com/nexustools/genericui/tests/JestElectricRunner.kt), `JestSuiteScope`, `JestSuspendRunner`, `RoboAppController`, `RoboFragmentController`, `RoboNodeInteraction`, and 12 single-class `JestElectric*RenderUtil` snapshot utilities |
+| **`systemMain`** | `:system` | Blink style/layout verification across all 8 non-web OS targets |
+| **`desktopMain` / `nativeDesktopMain`** | `:desktop` | `DesktopSharedRunnerNativeImpl` desktop event loop & window test harness |
+| **`jvmAndAndroidMain`** | `:jvm` | `JestScreenshotHostIo` shared screenshot & host filesystem helpers |
+| **`mingwMain` / `mingwX64Test`** | `Windows` | `WindowsVisualAppRunnerNativeImpl` (`visualOnWindows = true` onscreen `HWND` vs. fast headless verification) + `WindowsBackdropBlurTest` |
+| **`macosMain` / `macosArm64Test`** | `MacOS` (+ `:apple`) | `MacosJestElectricRunnerNativeImpl` (AppKit + Metal `CIContext` + squircle verification) |
+| **`linuxMain` / `linuxTest`** | `Gtk` & `Qt` | Co-hosts both `GtkJestElectricRunnerNativeImpl` and `QtJestElectricRunnerNativeImpl` cleanly in one test binary (`LinuxGtkAndQtRunnerTest`) |
+| **`jvmMain` / `jvmTest`** | `Swing` (+ `:jvm`) | `SwingJUnitRunnerNativeImpl` & `JestElectricSwingTestBase` |
+| **`mobileMain`** | `:mobile` | `MobileSharedRunnerNativeImpl` |
+| **`androidMain` / `androidHostTest`** | `Android` (+ `:jvm`) | `AndroidRobolectricRunnerNativeImpl` & `JestElectricRobolectricTestBase` (Robolectric SDK 35) |
+| **`iosMain` / `iosTest`** | `IOS` & `IPadOS` (+ `:apple`) | Co-hosts both `IosJestElectricRunnerNativeImpl` and `IpadosJestElectricRunnerNativeImpl` (`IosAndIpadosJestElectricRunnerTest`) |
+| **`webMain` / `jsMain` / `wasmJsMain`** | `Web` (`:web`) | `WebJestElectricRunnerNativeImpl` & `WebTestHostBridge` (`wasmJsTest` + `jsTest` under Node) |
 
 ---
 
 ## Single-`commonTest` UI Testing with `JestElectricRunner`
 
-Just as application code lives in `src/commonMain/kotlin`, UI tests live in `src/commonTest/kotlin` and run across every enabled backend without platform-specific test code:
-
-### 1. Testing an Individual Fragment (`launchFragment`)
 ```kotlin
-import com.nexustools.genericui.testing.JestElectricRunner
+import com.nexustools.genericui.tests.JestElectricRunner
 import kotlin.test.Test
 
 class CounterFragmentTest {
     @Test
-    fun clickingIncrementUpdatesLabel() = JestElectricRunner.runTest {
-        val fragment = launchFragment { CounterFragment() }
+    fun clickingIncrementUpdatesLabel() {
+        val report = JestElectricRunner.runSuite("CounterFragment Suite") {
+            test("increments counter on button click") {
+                val controller = launchFragment(CounterFragment())
 
-        onWidgetWithId("counter-label").assertTextEquals("Count: 0")
-        onWidgetWithId("increment-btn").performClick()
-        onWidgetWithId("counter-label").assertTextEquals("Count: 1")
-    }
-}
-```
+                controller.findById("counter-label").assertTextEquals("Count: 0")
+                controller.findById("increment-btn").performClick()
+                controller.findById("counter-label").assertTextEquals("Count: 1")
+                controller.destroy()
+            }
 
-### 2. Testing `ComponentStyle`, `ComponentBootstrap`, User Class Isolation, & `ThemeMode`
-```kotlin
-class StylingAndThemeTest {
-    @Test
-    fun verifiesBootstrapTypeNoneDefaultAndUserClassIsolation() = JestElectricRunner.runTest {
-        val fragment = launchFragment { CounterFragment() }
-        val button = onWidgetWithId("increment-btn").widget
+            test("verifies BootstrapType.NONE default & user CSS class isolation") {
+                val controller = launchFragment(CounterFragment())
+                val button = controller.findById("increment-btn").component!!
 
-        // Default BootstrapType is NONE; enum classes never pollute getClasses()
-        button.addClass("custom-action")
-        assert(button.hasClass("custom-action"))
-        assert(button.getClasses() == setOf("custom-action"))
+                button.addClass("custom-action")
+                expect(button.hasClass("custom-action")).toBe(true)
+                expect(button.getClasses()).toEqual(setOf("custom-action"))
+                controller.destroy()
+            }
+        }
+        report.assertAllPassed()
     }
 }
 ```
 
 ---
 
-## Generated Visual Test Runners (`testing { visualOnWindows = true }`)
+## `JestElectricButtonRenderUtil` Headless `backdropFilter`, Thread Dispatching, & `ServiceWorker` Testing
 
-By default, `:tests:desktop:windows` and all other test runners execute headlessly for fast CI verification. When debugging UI layout or native Win32 `UxTheme` rendering interactively, enable `visualOnWindows` in `build.gradle.kts`:
+- **Headless `backdropFilter` Rendering (`JestElectricButtonRenderUtil` / `JestElectricContainerChromeRenderUtil`)**: Evaluates `CssFilter.backdropBlurOrFilter(styledSpec.backdropBlurPx, styledSpec.backdropFilter)` via `applyBackdropToImageBufferRegion(...)` on `StyledButton` and `StyledContainer` (keeping transparent `fillBg = null` when no explicit background/tint is set, and stripping `backdropFilter` on `TextBubble`), verified in `JestElectricRunnerTest.testSnapshotRendererAppliesBackdropBlurToStyledContainerAndStyledButton`.
+- **UI vs. Logic Dispatcher (`DefaultUiThreadDispatcherNativeImpl` / `JvmUiThreadDispatcherBase`)**: Handles `dispatchToUi`, `dispatchToLogic`, `runOnUiBlocking`, and headless inline execution automatically in tests (`JestSuspendRunner`).
+- **`ServiceWorker` Test Harnesses**: Includes `ServiceWorkerExtension.resetForTests()`, `ServiceWorkerRuntimeAndIpcTest` (desktop loopback `127.0.0.1:0` IPC + `DesktopOsHelpers` + `WindowsShortcutWriter`), `AndroidServiceWorkerRobolectricTest` (Robolectric SDK 35 notification/action intents + `Binder` IPC), `AppleMobileServiceWorkerTest` (`isSupported == false`), `WebServiceWorkerBridgeTest`, and `ServiceWorkerCrossPlatformTest`.
+
+---
+
+## Visual Windows Mode & Convenience Commands
 
 ```kotlin
 genericui {
-    app {
-        id = "com.example.myapp"
-        name = "My App"
-    }
     testing {
+        enabled = true
         visualOnWindows = true
     }
 }
 ```
 
-When `testing.visualOnWindows` is enabled (or `-Pgenericui.visualTests=true` is passed on the Gradle command line), `GenericUiGenerateLaunchersTask` generates `GeneratedWindowsVisualTestLauncher` in `mingwX64Test`, opening a real Win32 window during test execution.
+```bash
+./gradlew :tests:jvmTest :tests:wasmJsTest :tests:jsTest
+./gradlew testSwing testWindows testMac testLinux testAndroid testIos testIpados testWeb windowsVisualTest
+```
 
 ---
 

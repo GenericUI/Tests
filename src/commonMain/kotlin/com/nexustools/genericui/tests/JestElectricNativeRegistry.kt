@@ -11,7 +11,7 @@ import com.nexustools.genericui.enums.system.BackendTarget
  */
 object JestElectricNativeRegistry {
 
-    private var activeImpl: JestElectricRunnerNativeImpl = DefaultJestElectricRunnerNativeImpl()
+    private var activeImpl: JestElectricRunnerNativeImpl = createPlatformDefaultJestElectricRunner()
     private val runnersByTarget = LinkedHashMap<BackendTarget, JestElectricRunnerNativeImpl>()
 
     /**
@@ -50,10 +50,10 @@ object JestElectricNativeRegistry {
     fun current(): JestElectricRunnerNativeImpl = activeImpl
 
     /**
-     * Resets the registry back to [DefaultJestElectricRunnerNativeImpl] and clears target overrides.
+     * Resets the registry back to the platform default runner and clears target overrides.
      */
     fun resetToDefault() {
-        activeImpl = DefaultJestElectricRunnerNativeImpl()
+        activeImpl = createPlatformDefaultJestElectricRunner()
         runnersByTarget.clear()
     }
 }

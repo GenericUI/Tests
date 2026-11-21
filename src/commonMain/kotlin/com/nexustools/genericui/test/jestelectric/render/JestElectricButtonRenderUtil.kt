@@ -10,7 +10,9 @@ import com.nexustools.genericui.component.action.ToggleButton
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.enums.bootstrap.BootstrapType
 import com.nexustools.genericui.enums.ui.Orientation
+import com.nexustools.genericui.image.PixelFormat
 import com.nexustools.genericui.style.color.RgbaColor
+import com.nexustools.genericui.style.css.CssFilter
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -161,7 +163,14 @@ object JestElectricButtonRenderUtil {
                 ?: comp.textColorType?.takeIf { it != BootstrapType.NONE }?.let { ctx.resolveBootstrapColor(it) }
         }
 
-        if (customBg == null && customBorder == null) {
+        val styledSpec = styledBtn?.resolveCurrentVisualSpec()
+        val effBackdropFilter = if (styledSpec != null && w > 0 && h > 0) {
+            CssFilter.backdropBlurOrFilter(styledSpec.backdropBlurPx, styledSpec.backdropFilter)
+        } else {
+            null
+        }
+
+        if (customBg == null && customBorder == null && effBackdropFilter == null) {
             // Fall back to native control + BootstrapType tinting while honoring customFg & typography
             val transformed = JestElectricTextRenderUtil.applyTextTransform(rawLabel, comp)
             JestElectricControlTintRenderUtil.renderTintedNativeControl(
@@ -185,16 +194,42 @@ object JestElectricButtonRenderUtil {
             return
         }
 
+        if (effBackdropFilter != null && ctx.buffer.pixelFormat == PixelFormat.RGBA_8888) {
+            val radiusPx = styledSpec?.borderRadiusPx
+                ?: comp.style.borderRadiusPx
+                ?: comp.computedStyle?.borderRadiusPx
+                ?: 0f
+            val filtered = effBackdropFilter.applyBackdropToImageBufferRegion(
+                buffer = ctx.buffer,
+                regionX = x,
+                regionY = y,
+                regionWidth = w,
+                regionHeight = h,
+                cornerRadiusPx = radiusPx
+            )
+            if (filtered !== ctx.buffer && ctx.buffer.bytes.size >= filtered.bytes.size) {
+                filtered.bytes.copyInto(ctx.buffer.bytes)
+            }
+        }
+
         val fillBg = customBg
             ?: ctx.resolveBootstrapTintOrNull(effectiveType)
-            ?: ctx.bgElevated
-        val borderCol = customBorder ?: ctx.borderStrong
-        val borderThickness = (comp.style.borderWidthPx ?: comp.computedStyle?.borderWidthPx ?: 1f)
-            .roundToInt()
-            .coerceIn(1, 4)
-
-        JestElectricControlTintRenderUtil.fillRect(ctx.buffer, x, y, w, h, fillBg)
-        JestElectricControlTintRenderUtil.drawRectBorder(ctx.buffer, x, y, w, h, borderCol, borderThickness)
+            ?: if (effBackdropFilter != null) null else ctx.bgElevated
+        if (fillBg != null && fillBg.a > 0) {
+            if (fillBg.a >= 250) {
+                JestElectricControlTintRenderUtil.fillRect(ctx.buffer, x, y, w, h, fillBg)
+            } else {
+                JestElectricControlTintRenderUtil.fillRectAlpha(ctx.buffer, x, y, w, h, fillBg)
+            }
+        }
+        val explicitBorderW = comp.style.borderWidthPx ?: comp.computedStyle?.borderWidthPx
+        val borderCol = customBorder ?: if (effBackdropFilter == null || (explicitBorderW ?: 0f) > 0f) ctx.borderStrong else null
+        if (borderCol != null && borderCol.a > 0 && (explicitBorderW == null || explicitBorderW > 0f)) {
+            val borderThickness = (explicitBorderW ?: 1f)
+                .roundToInt()
+                .coerceIn(1, 4)
+            JestElectricControlTintRenderUtil.drawRectBorder(ctx.buffer, x, y, w, h, borderCol, borderThickness)
+        }
 
         val fg = customFg ?: when {
             !comp.isEnabled -> ctx.textMuted

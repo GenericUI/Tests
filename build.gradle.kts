@@ -18,7 +18,9 @@ kotlin {
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
-        withHostTest {}
+        withHostTest {
+            isIncludeAndroidResources = true
+        }
 
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
@@ -143,6 +145,7 @@ kotlin {
                 api(project(":jvm"))
                 api(libs.kotlin.testJunit)
                 api(libs.junit)
+                api("org.robolectric:robolectric:4.16.1")
             }
         }
 

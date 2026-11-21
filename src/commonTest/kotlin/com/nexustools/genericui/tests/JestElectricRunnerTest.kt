@@ -370,6 +370,125 @@ class JestElectricRunnerTest {
     }
 
     @Test
+    fun testSnapshotRendererAppliesBackdropBlurToStyledContainerAndStyledButton() {
+        val w = 120
+        val h = 80
+        val buf = com.nexustools.genericui.image.ImageBuffer(
+            width = w,
+            height = h,
+            pixelFormat = com.nexustools.genericui.image.PixelFormat.RGBA_8888
+        )
+        for (py in 0 until h) {
+            for (px in 0 until w) {
+                buf.setPixel(
+                    px,
+                    py,
+                    if (px < w / 2) RgbaColor(240, 10, 10, 255) else RgbaColor(10, 10, 240, 255)
+                )
+            }
+        }
+        val glass = StyledContainer().apply {
+            backgroundColor = RgbaColor(0, 0, 0, 0)
+            setBackdropBlur(6)
+        }
+        val ctx = com.nexustools.genericui.test.jestelectric.render.JestElectricRenderContext(
+            buffer = buf,
+            isDark = true,
+            themeConfig = com.nexustools.genericui.style.theme.ThemeConfig(),
+            backendTarget = "windows",
+            bgWindow = RgbaColor(18, 18, 22),
+            bgSurface = RgbaColor(24, 24, 30),
+            bgCard = RgbaColor(32, 32, 38),
+            bgElevated = RgbaColor(40, 40, 48),
+            bgInput = RgbaColor(28, 28, 34),
+            bgTitleBar = RgbaColor(20, 20, 24),
+            bgMenuBar = RgbaColor(22, 22, 26),
+            bgStatusBar = RgbaColor(18, 18, 22),
+            borderSubtle = RgbaColor(60, 60, 70),
+            borderStrong = RgbaColor(90, 90, 100),
+            textPrimary = RgbaColor.WHITE,
+            textSecondary = RgbaColor(200, 200, 200),
+            textMuted = RgbaColor(150, 150, 150),
+            accent = RgbaColor(255, 126, 150),
+            renderChild = { _, _, _, _, _, _, _ -> }
+        )
+        JestElectricContainerChromeRenderUtil.renderContainerChromeBackgroundAndBorder(
+            ctx = ctx,
+            x = 10,
+            y = 10,
+            w = 100,
+            h = 60,
+            comp = glass
+        )
+        val seamPixel = buf.getPixel(59, 40)
+        assertTrue(seamPixel.b > 25, "Expected snapshot backdrop blur to blend blue across seam, got $seamPixel")
+        assertTrue(seamPixel.r < 225, "Expected snapshot backdrop blur to blur red at seam, got $seamPixel")
+
+        val btnBuf = com.nexustools.genericui.image.ImageBuffer(
+            width = w,
+            height = h,
+            pixelFormat = com.nexustools.genericui.image.PixelFormat.RGBA_8888
+        )
+        for (py in 0 until h) {
+            for (px in 0 until w) {
+                btnBuf.setPixel(
+                    px,
+                    py,
+                    if (px < w / 2) RgbaColor(240, 10, 10, 255) else RgbaColor(10, 10, 240, 255)
+                )
+            }
+        }
+        val glassBtn = com.nexustools.genericui.component.action.StyledButton("").apply {
+            backgroundColor = RgbaColor(0, 0, 0, 0)
+            borderWidthPx = 0f
+            setBackdropBlur(6)
+        }
+        val btnCtx = com.nexustools.genericui.test.jestelectric.render.JestElectricRenderContext(
+            buffer = btnBuf,
+            isDark = true,
+            themeConfig = com.nexustools.genericui.style.theme.ThemeConfig(),
+            backendTarget = "windows",
+            bgWindow = RgbaColor(18, 18, 22),
+            bgSurface = RgbaColor(24, 24, 30),
+            bgCard = RgbaColor(32, 32, 38),
+            bgElevated = RgbaColor(40, 40, 48),
+            bgInput = RgbaColor(28, 28, 34),
+            bgTitleBar = RgbaColor(20, 20, 24),
+            bgMenuBar = RgbaColor(22, 22, 26),
+            bgStatusBar = RgbaColor(18, 18, 22),
+            borderSubtle = RgbaColor(60, 60, 70),
+            borderStrong = RgbaColor(90, 90, 100),
+            textPrimary = RgbaColor.WHITE,
+            textSecondary = RgbaColor(200, 200, 200),
+            textMuted = RgbaColor(150, 150, 150),
+            accent = RgbaColor(255, 126, 150),
+            renderChild = { _, _, _, _, _, _, _ -> }
+        )
+        assertTrue(
+            com.nexustools.genericui.test.jestelectric.render.JestElectricButtonRenderUtil.render(
+                ctx = btnCtx,
+                x = 10,
+                y = 24,
+                w = 100,
+                h = 32,
+                comp = glassBtn
+            )
+        )
+        val btnSeamPixel = btnBuf.getPixel(59, 28)
+        assertTrue(btnSeamPixel.b > 25, "Expected StyledButton backdrop blur to blend blue across seam, got $btnSeamPixel")
+        assertTrue(btnSeamPixel.r < 225, "Expected StyledButton backdrop blur to blur red at seam, got $btnSeamPixel")
+
+        val bubble = com.nexustools.genericui.component.surface.TextBubble("Hi").apply {
+            getStyle().setBackdropFilter(
+                com.nexustools.genericui.style.css.CssFilter.blur(
+                    com.nexustools.genericui.style.css.CssLength.px(6)
+                )
+            )
+        }
+        kotlin.test.assertNull(bubble.resolveVisualSpec().backdropBlurPx)
+    }
+
+    @Test
     fun testRegistryTargetDispatchAndFailFastWhenUnregistered() {
         val prevRunner = JestElectricNativeRegistry.current()
         val prevFactory = GenericUI.activeFactory

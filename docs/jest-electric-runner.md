@@ -1,73 +1,64 @@
 # `JestElectricRunner` — Multiplatform UI Testing API Reference
 
+> **Module Guide**: [**`:tests` (`../README.md`)**](../README.md) | **Master Docs**: [**`docs/testing.md`**](../../docs/testing.md) · [`platform-test-runners.md`](platform-test-runners.md)
+
 ## Overview
-`JestElectricRunner` (`com.nexustools.genericui.testing.JestElectricRunner` in `:tests:common`) is GenericUI's multiplatform UI test runner. It combines **Robolectric-style** synchronous lifecycle driving with **Jest / Testing Library-style** declarative widget queries, event simulation, and assertions.
+`JestElectricRunner` (`com.nexustools.genericui.tests.JestElectricRunner` inside `:tests` `commonMain`) is GenericUI's multiplatform UI test runner. It pairs **Robolectric-style** synchronous lifecycle controllers (`RoboAppController`, `RoboFragmentController`) with **Jest / Testing Library-style** declarative suite DSLs (`describe`, `beforeEach`, `afterEach`, `test`, `it`, `expect`), queries (`findById`, `findByText`), and user interaction simulation (`performClick`, `performHover`, `performFocus`, `performTypeText`).
 
 ---
 
-## Core Entry Points (`UiTestContext`)
+## Core Entry Points (`JestSuiteScope` & Controllers)
 
-Inside `JestElectricRunner.runTest { ... }`, the receiver is a `UiTestContext` providing:
+Run suites via `JestElectricRunner.runSuite("Suite Name") { ... }`, `JestElectricRunner.runSuiteForTarget(target, "Suite Name") { ... }`, or `JestElectricRunner.runSuiteAcrossTargets(targets, "Suite Name") { ... }`. Inside each `test(...)` / `it(...)` block (`JestTestScope`):
 
-| Method | Description |
-|--------|-------------|
-| `launchFragment(args = FragmentBundle(), factory: () -> F): F` | Mounts a `Fragment` inside a `FragmentHostFragment` attached to a test `Window`, drives its lifecycle through `onAttach` $\rightarrow$ `onCreate` $\rightarrow$ `onCreateView` $\rightarrow$ `onStart` $\rightarrow$ `onResume`, and returns the fragment instance |
-| `launchApp(mainFragment: () -> Fragment, fragments: Map<String, () -> Fragment>): FragmentHostFragment` | Boots a complete application context with registered `@AppFragment` factories, mounts the `@MainAppFragment`, and returns the root `FragmentHostFragment` |
-| `launchWindow(title: String = "Test", width: Int = 1024, height: Int = 768, block: Window.() -> Unit): Window` | Creates and mounts a top-level `Window` directly for testing window chrome (`TitleBar`, `MenuBar`, `StatusBar`, `TitleCapabilities`) |
-| `advanceTimeBy(delayMs: Long)` | Advances virtual `UiTimer` and animation clocks deterministically without sleeping |
-| `IdleSynchronizer.waitForIdle()` | Flushes pending UI dispatcher tasks, layout passes, and fragment transactions |
-
----
-
-## Querying Widgets (`WidgetMatcher`)
-
-| Query Function | Matches |
-|----------------|---------|
-| `onWidgetWithId(id: String)` | Widget whose `id` matches `id` |
-| `onWidgetWithText(text: String, substring: Boolean = false)` | `Label`, `Button`, `TextInput`, `Checkbox`, or other widget displaying `text` |
-| `onWidgetWithTag(tag: String)` | Widget carrying the specified test tag or CSS class |
-| `onAllWidgets(matcher: (Widget) -> Boolean)` | All widgets in the active window/fragment hierarchy satisfying `matcher` |
+| Helper / Method | Return Type | Behavior |
+|-----------------|-------------|----------|
+| `launchFragment(fragment, visualWindow = false)` | `RoboFragmentController<F>` | Mounts a `Fragment` into `FragmentTestWindow`, drives `INITIALIZED -> CREATED -> STARTED -> RESUMED` (`create()`, `start()`, `resume()`, `setup()`, `pause()`, `stop()`, `destroy()`, `idleMainLooper(ms)`), and supports queries |
+| `launchApp(app, visualWindow = false)` | `RoboAppController<A>` | Boots an `Application` (`create()`, `start()`, `resume()`, `visible()`, `setup()`, `pause()`, `stop()`, `destroy()`, `idleMainLooper(ms)`), supporting `findById`, `findByText`, and `clickMenu` |
+| `expect(value)` | `JestExpectation<T>` | Fluent assertions (`toBe`, `toEqual`, `toBeNull`, `toBeNotNull`, `toBeTruthy`, `toBeFalsy`, `toContain`, `toHaveLength`, `toBeGreaterThan`, `toBeLessThan`, plus `.not`) |
+| `runSuiteAcrossTargets(...)` / `JestSuspendRunner` | `JestSuiteReport` | Executes across multiple backends cleanly using blocking dispatchers on JVM/Android/Native and promise/synchronous completion on Web |
 
 ---
 
-## Simulating User Interactions
+## Querying & Interaction (`RoboNodeInteraction` & `RoboComponentExpectation`)
 
-| Action | Description |
-|--------|-------------|
-| `performClick()` | Dispatches a click/tap event if the widget is visible and enabled |
-| `performDoubleClick()` | Dispatches a double-click event |
-| `performTextInput(text: String)` | Focuses a `TextInput` / `TextArea` / `RichTextEditor` and replaces its text value |
-| `performKeyPress(keyCode: Int, modifiers: Set<KeyModifier> = emptySet())` | Dispatches key down/up events |
-| `performScrollTo(offsetX: Int, offsetY: Int)` | Scrolls a `ScrollView`, `LazyList`, or `LazyGrid` and triggers viewport virtualization updates |
-
----
-
-## Verifying Styling, Cursors, `ThemeConfig`, Native Control Tinting, Window Chrome, & Navigation History
-
-`JestElectricRunner` allows tests in `commonTest` to verify all styling, cursor, theme, chrome, and navigation invariants:
-- **Strongly-Typed `ComponentStyle` (`getStyle()`) & `ComponentBootstrap` (`getBootstrap()`)**: Verify `BootstrapType.NONE` default, semantic `BootstrapType` tinting (`DANGER`, `PRIMARY`, etc.), 128-bit `CssProperty` `!important` bitmasks (`importantMaskLo` / `importantMaskHi`), `accentColor` (`accent-color`), and `CssCustomCursor` (`.cur` encoding via `WindowsCurCodec` on Windows, `NSImage` PNG encoding via `MacosCursorTranslator` on macOS). GenericUI does not expose string-keyed style APIs (`setStyleProperty(String, String)` is prohibited).
-- **System Backend Typography vs. Aesthetic Style Restraints**: Verify that text elements (`Label`, `Text`, `Heading`, `Badge`, `Blockquote`, `CodeBlock`, `MarkdownView`) honor typography and text-color styles, standard controls/containers ignore aesthetic/typography `ComponentStyle` overrides on system targets and tint strictly via `BootstrapType`, and `StyledContainer` / `StyledButton` (and `:extensions:alien`) honor full `ComponentStyle` aesthetics across all backends.
-- **Strict User CSS Class Isolation**: Verify that `getClasses()`, `getClass()`, and `hasClass()` return exclusively user-added classes (`customClasses` / `userClassList`) and never expose enum-managed classes.
-- **`IApplication.addStyleSheet` / `removeStyleSheet`, `ThemeMode`, & `ThemeConfig`**: Verify stylesheet registration (`R.style.<name>`), `app.setTheme(ThemeMode.AUTO | ThemeMode.DARK | ThemeMode.LIGHT)` / `app.getResolvedTheme()`, and `app.setThemeConfig(config)` / `app.setThemeColor(argb)` (`BootstrapColorPalette`).
-- **Single-Placement `TitleBar` & Optional Mobile/Web Navbar**: Verify `mountedInTitleBar == true` on desktop and `isTitleBarRequired == false` on mobile/web.
+| Query / Action / Assertion | Behavior |
+|----------------------------|----------|
+| `findById(id: String)` / `findByText(text, substring = false, ignoreCase = true)` | Returns a `RoboNodeInteraction` over the active fragment/app tree |
+| `performClick()` / `performHover()` / `performFocus()` | Dispatches click, hover, or focus events via `JestElectricRunnerNativeImpl` |
+| `performTypeText(text: String)` | Enters text into focused input components |
+| `assertExists()` / `assertDoesNotExist()` / `assertIsVisible()` / `assertIsHidden()` / `assertIsEnabled()` / `assertIsDisabled()` | Asserts widget existence, layout visibility, and enabled state |
+| `assertTextEquals(expected)` / `assertTextContains(substring)` / `assertHasClass(cssClass)` / `assertHasTooltip(expected)` | Asserts displayed text, strict user CSS class isolation, and tooltips |
 
 ---
 
-## Modular Snapshot Rendering Architecture (`JestElectric*RenderUtil` in `:tests:common`)
+## Headless `backdropFilter`, Thread Dispatching, & Styling Verification
 
-Headless component snapshot rendering in `:tests:common` (`com.nexustools.genericui.tests.render`) is organized into 12 focused, single-class-per-file `*RenderUtil` modules (replacing the legacy `JestElectricComponentSnapshotRenderer.kt` monolith):
+1. **`JestElectricButtonRenderUtil` & Headless `backdropFilter` Snapshots**:
+   - All 12 single-class `JestElectric*RenderUtil` snapshot utilities (`com.nexustools.genericui.test.jestelectric.render`) work without opening native OS windows:
+     - [`JestElectricButtonRenderUtil`](../src/commonMain/kotlin/com/nexustools/genericui/test/jestelectric/render/JestElectricButtonRenderUtil.kt) (`Button`, `StyledButton`, `IconButton`, `ToggleButton`, `SplitDropdownButton`, `FloatingActionButton`, `ButtonGroup`) and [`JestElectricContainerChromeRenderUtil`](../src/commonMain/kotlin/com/nexustools/genericui/test/jestelectric/render/JestElectricContainerChromeRenderUtil.kt) (`StyledContainer`, `Card`, `Container`, etc.) evaluate `CssFilter.backdropBlurOrFilter(styledSpec.backdropBlurPx, styledSpec.backdropFilter)` and invoke `applyBackdropToImageBufferRegion(...)` onto the `RGBA_8888` snapshot buffer (excluding `TextBubble`, which strips `backdropFilter`).
+     - When `effBackdropFilter != null` and no custom/tinted background is configured on `StyledButton`, `fillBg` remains `null` so backdrop blur stays visible instead of filling opaque `ctx.bgElevated`. Verified in `JestElectricRunnerTest.testSnapshotRendererAppliesBackdropBlurToStyledContainerAndStyledButton`.
+2. **Thread & Coroutine Dispatching (`DefaultUiThreadDispatcherNativeImpl` & `JvmUiThreadDispatcherBase`)**:
+   - `DefaultUiThreadDispatcherNativeImpl` separates UI and Logic execution queues when `isSplitThreadingEnabled = true` (`dispatchToUi`, `dispatchToLogic`, `runOnUiBlocking`).
+   - `JvmUiThreadDispatcherBase` backs Swing and Android using `Executors.newSingleThreadExecutor()` + `CountDownLatch` `runOnUiBlocking` synchronization while degrading gracefully to inline synchronous execution during headless unit/Robolectric tests where no AWT `EventQueue` or Android Main `Looper` is pumping.
+3. **Typography vs. Style Restraints & Class Isolation**:
+   - Verify `BootstrapType.NONE` native defaults, semantic `BootstrapType` tinting, user-only `customClasses` / `userClassList` isolation, `ThemeMode.AUTO` / `ThemeConfig`, and single-placement `TitleBar` (`mountedInTitleBar == true`).
+
+---
+
+## 12 Modular Snapshot Rendering Utilities (`com.nexustools.genericui.test.jestelectric.render`)
 
 | Class | Responsibility |
 |-------|----------------|
-| `JestElectricRenderContext` | Snapshot canvas state, viewport clipping stack, active `ThemeConfig` / `ThemeMode` resolution, and tree traversal |
-| `JestElectricPrimitiveRenderUtil` | Pixel-accurate rounded rectangles, AA lines, borders, shadows, and bitmap blitting |
-| `JestElectricControlTintRenderUtil` | Empty-text offscreen native control sprite synthesis and `DesktopControlTintRenderUtil`-compatible `BootstrapType` + `ThemeConfig` pixel tinting |
-| `JestElectricActionControlRenderUtil` | `Button`, `StyledButton`, `IconButton`, `ToggleButton`, `ButtonGroup`, `DropdownButton`, `SplitButton`, `FloatingActionButton` |
-| `JestElectricFormControlRenderUtil` | `TextField`, `PasswordField`, `SearchField`, `TextArea`, `NumberField`, `CheckBox`, `RadioButton`, `Switch`, `Select`, `ComboBox`, `RangeSlider` |
-| `JestElectricFeedbackRenderUtil` | `ProgressBar`, `Spinner`, `Alert`, `Toast`, `Snackbar`, `Tooltip`, `Popover`, `Skeleton` |
-| `JestElectricTypographyRenderUtil` | `Label`, `Text`, `Heading`, `Badge`, `Tag`, `Blockquote`, `CodeBlock`, `MarkdownView` (honoring full `ComponentStyle` typography and text color) |
-| `JestElectricSurfaceRenderUtil` | `Card`, `Accordion`, `Paper`, `Callout`, `EmptyState`, `Divider`, `StyledContainer` |
-| `JestElectricContainerLayoutRenderUtil` | `Container`, `HStack`, `VStack`, `ZStack`, `FlexBox` (including `FlexWrap.WRAP`), `Grid`, `ScrollView`, `SplitPane`, `CollapsiblePanel`, `ResizableBox`, `AspectRatioBox` |
-| `JestElectricDockAndMdiRenderUtil` | `DockContainer`, `DockSplitNode`, `DockTabGroup`, `DockPanel`, `MdiContainer` (including `tileWindows` & `autoTileInitialWindows`), `MdiWindow`, `Drawer`, `BottomSheet`, `Modal` |
-| `JestElectricNavigationAndShellRenderUtil` | `TitleBar`, `MenuBar`, `ToolBar`, `StatusBar`, `TabContainer`, `Breadcrumb`, `Pagination`, `Stepper`, `NavigationRail`, `BottomNavigationBar` |
-| `JestElectricDataAndLazyRenderUtil` | `Table` (including `columnWeights`), `DataGrid`, `TreeView`, `Timeline`, `ListGroup`, `DescriptionList`, `StatCard`, `LazyList`, `LazyGrid` (including `minColumnWidthPx`), `Image`, `Avatar`, `Icon` |
+| `JestElectricRenderContext` | Snapshot `RGBA_8888` canvas state, viewport clip stack, `ThemeConfig` / `ThemeMode` resolution, and tree walk |
+| `JestElectricControlTintRenderUtil` | Pixel primitives (`fillRect`, `fillRectAlpha`, rounded rects) and empty-text offscreen `BootstrapType` sprite tinting |
+| `JestElectricButtonRenderUtil` | `Button`, `StyledButton` (with `backdropFilter` + transparent glass default), `IconButton`, `ToggleButton`, `SplitDropdownButton`, `FloatingActionButton`, `ButtonGroup` |
+| `JestElectricContainerChromeRenderUtil` | `Container`, `VStack`/`HStack`/`FlexBox`/`Grid`, `StyledContainer` (with `backdropFilter`, excluding `TextBubble`), `Card`, `Accordion`, `Divider` |
+| `JestElectricTextRenderUtil` | `Label`, `Text`, `Heading`, `Badge`, `Blockquote`, `CodeBlock`, `MarkdownView` typography & color rendering |
+| `JestElectricInputFieldRenderUtil` | `TextInput`, `TextField`, `TextArea`, `SearchBox`, `NumberField`, `PasswordField` |
+| `JestElectricToggleSelectionRenderUtil` | `CheckBox`, `RadioButton`, `Switch`, `Select`, `DropdownButton` |
+| `JestElectricSliderProgressRenderUtil` | `RangeSlider`, `ProgressBar`, `Spinner`, `ExpandingVolumeSlider` |
+| `JestElectricNavigationRenderUtil` | `TitleBar`, `MenuBar`, `TabContainer`, `Tab`, `Navbar`, `Drawer`, `BottomNavigationBar`, `Breadcrumb` |
+| `JestElectricDataDisplayRenderUtil` | `Table`, `DataGrid`, `TreeView`, `LazyList`, `LazyGrid`, `Calendar`, `Timeline` |
+| `JestElectricWorkspaceWindowRenderUtil` | `SplitPane`, `ScrollView`, `DockWorkspace`, `MdiContainer`, `DialogHost`, `ToastHost`, stage HUD overlays |
+| `JestElectricMediaCanvasRenderUtil` | `Canvas2D`, `Canvas3D`, `VideoPlayer`, `AudioPlayer`, `WebView`, `ImageView` |

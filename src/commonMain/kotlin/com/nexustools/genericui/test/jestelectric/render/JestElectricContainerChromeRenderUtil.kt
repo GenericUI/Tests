@@ -44,7 +44,10 @@ import com.nexustools.genericui.core.AbstractContainer
 import com.nexustools.genericui.enums.bootstrap.BootstrapType
 import com.nexustools.genericui.enums.bootstrap.FlexDirection
 import com.nexustools.genericui.enums.bootstrap.FlexWrap
+import com.nexustools.genericui.image.PixelFormat
 import com.nexustools.genericui.style.color.RgbaColor
+import com.nexustools.genericui.style.css.CssFilter
+import com.nexustools.genericui.style.policy.AestheticStylePolicy
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -253,6 +256,23 @@ object JestElectricContainerChromeRenderUtil {
         comp: AbstractComponent
     ) {
         val allowFullStyle = ctx.allowsFullComponentStyleOnContainer(comp)
+        if (comp is StyledContainer && AestheticStylePolicy.isStyledContainerOnly(comp) && w > 0 && h > 0) {
+            val spec = comp.resolveVisualSpec()
+            val effFilter = CssFilter.backdropBlurOrFilter(spec.backdropBlurPx, spec.backdropFilter)
+            if (effFilter != null && ctx.buffer.pixelFormat == PixelFormat.RGBA_8888) {
+                val filtered = effFilter.applyBackdropToImageBufferRegion(
+                    buffer = ctx.buffer,
+                    regionX = x,
+                    regionY = y,
+                    regionWidth = w,
+                    regionHeight = h,
+                    cornerRadiusPx = spec.borderRadiusPx ?: 0f
+                )
+                if (filtered !== ctx.buffer && ctx.buffer.bytes.size >= filtered.bytes.size) {
+                    filtered.bytes.copyInto(ctx.buffer.bytes)
+                }
+            }
+        }
         val bgType = comp.backgroundType?.takeIf { it != BootstrapType.NONE }
             ?: comp.bootstrap.backgroundType?.takeIf { it != BootstrapType.NONE }
         val borderType = comp.borderType?.takeIf { it != BootstrapType.NONE }

@@ -32,7 +32,18 @@ data class JestSuiteReport(
     fun assertAllPassed() {
         if (!allPassed) {
             val failedSummary = results.filter { !it.passed }
-                .joinToString("\n") { " - ${it.fullName}: ${it.failureMessage ?: it.error?.message}" }
+                .joinToString("\n") { res ->
+                    val err = res.error
+                    val trace = err?.stackTraceToString()
+                        ?.lineSequence()
+                        ?.take(12)
+                        ?.joinToString("\n    ")
+                    if (trace != null) {
+                        " - ${res.fullName}: ${res.failureMessage ?: err.message}\n    $trace"
+                    } else {
+                        " - ${res.fullName}: ${res.failureMessage ?: res.error?.message}"
+                    }
+                }
             throw AssertionError(
                 "JestElectricRunner suite '$suiteName' had $failedCount failing test(s) out of $totalCount:\n$failedSummary"
             )

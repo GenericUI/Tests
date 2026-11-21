@@ -139,12 +139,14 @@ object JestElectricRunner {
         suiteName: String,
         visualOnWindows: Boolean = true,
         throwOnFailure: Boolean = true,
+        perTestTimeoutMs: Long = 15_000L,
         runnerImpl: JestElectricRunnerNativeImpl = JestElectricNativeRegistry.current(),
         block: JestSuiteScope.() -> Unit
     ): JestSuiteReport = runSuite(
         suiteName = suiteName,
         visualOnWindows = visualOnWindows,
         throwOnFailure = throwOnFailure,
+        perTestTimeoutMs = perTestTimeoutMs,
         runnerImpl = runnerImpl,
         block = block
     )
