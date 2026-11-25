@@ -11,6 +11,7 @@ import com.nexustools.genericui.component.form.Switch
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.enums.bootstrap.BootstrapType
 import com.nexustools.genericui.style.color.RgbaColor
+import com.nexustools.genericui.style.theme.ThemeConfig
 
 /**
  * Renders toggle and selection controls ([CheckBox], [RadioButton], [RadioGroup],
@@ -82,13 +83,8 @@ object JestElectricToggleSelectionRenderUtil {
     ) {
         val boxSize = 14
         val by = y + (h - boxSize) / 2
-        val activeType = if (comp.isChecked) {
-            comp.type.takeIf { it != BootstrapType.NONE } ?: BootstrapType.PRIMARY
-        } else {
-            BootstrapType.NONE
-        }
 
-        // Render empty-text native checkbox box into offscreen buffer, tint if checked, and blit
+        // Render empty-text native checkbox box into offscreen buffer using system accent when checked, ignoring BootstrapType
         val offscreen = JestElectricControlTintRenderUtil.renderNativeControlSpriteOffscreen(
             w = boxSize,
             h = boxSize,
@@ -101,7 +97,7 @@ object JestElectricToggleSelectionRenderUtil {
             cornerRadius = 2
         )
         if (comp.isChecked) {
-            val tint = ctx.resolveBootstrapColor(activeType)
+            val tint = ctx.accent
             JestElectricControlTintRenderUtil.tintOffscreenControlBuffer(
                 offscreen = offscreen,
                 tintColor = tint,
@@ -124,7 +120,7 @@ object JestElectricToggleSelectionRenderUtil {
         )
 
         if (comp.isChecked) {
-            val markFg = ctx.resolveBootstrapForeground(activeType)
+            val markFg = ThemeConfig.autoContrastForeground(ctx.accent)
             JestElectricControlTintRenderUtil.drawLine(ctx.buffer, x + 5, by + 7, x + 8, by + 10, markFg)
             JestElectricControlTintRenderUtil.drawLine(ctx.buffer, x + 8, by + 10, x + 13, by + 4, markFg)
         }
@@ -152,11 +148,6 @@ object JestElectricToggleSelectionRenderUtil {
         val sw = 28
         val sh = 14
         val sy = y + (h - sh) / 2
-        val activeType = if (comp.isChecked) {
-            comp.type.takeIf { it != BootstrapType.NONE } ?: BootstrapType.PRIMARY
-        } else {
-            BootstrapType.NONE
-        }
 
         val offscreen = JestElectricControlTintRenderUtil.renderNativeControlSpriteOffscreen(
             w = sw,
@@ -172,7 +163,7 @@ object JestElectricToggleSelectionRenderUtil {
         if (comp.isChecked) {
             JestElectricControlTintRenderUtil.tintOffscreenControlBuffer(
                 offscreen = offscreen,
-                tintColor = ctx.resolveBootstrapColor(activeType),
+                tintColor = ctx.accent,
                 isDark = ctx.isDark,
                 outline = false,
                 isHovered = comp.isHovered,
@@ -215,8 +206,7 @@ object JestElectricToggleSelectionRenderUtil {
     ) {
         val cy = y + h / 2
         val cx = x + 9
-        val activeColor = comp.type.takeIf { it != BootstrapType.NONE }?.let { ctx.resolveBootstrapColor(it) }
-            ?: ctx.accent
+        val activeColor = ctx.accent
         JestElectricControlTintRenderUtil.fillCircle(ctx.buffer, cx, cy, 6, ctx.bgInput)
         JestElectricControlTintRenderUtil.drawCircle(
             ctx.buffer,
@@ -281,7 +271,7 @@ object JestElectricToggleSelectionRenderUtil {
             y = sy,
             w = w,
             h = sh,
-            bootstrapType = comp.type,
+            bootstrapType = BootstrapType.NONE,
             outline = true,
             isSunken = false,
             isHovered = comp.isHovered,
@@ -329,7 +319,7 @@ object JestElectricToggleSelectionRenderUtil {
             y = sy,
             w = inputW,
             h = sh,
-            bootstrapType = comp.type,
+            bootstrapType = BootstrapType.NONE,
             outline = true,
             isSunken = true,
             isHovered = comp.isHovered,
@@ -346,7 +336,7 @@ object JestElectricToggleSelectionRenderUtil {
             y = sy,
             w = btnW,
             h = sh,
-            bootstrapType = comp.type,
+            bootstrapType = BootstrapType.NONE,
             outline = false,
             isSunken = false,
             isHovered = comp.isHovered,
@@ -369,14 +359,15 @@ object JestElectricToggleSelectionRenderUtil {
         val bh = h.coerceAtMost(30)
         val by = y + (h - bh) / 2
         val textWithCaret = "${comp.label.ifEmpty { "Dropdown" }} ▾"
+        val allowBs = ctx.allowsBootstrapTypeOnComponent(comp)
         JestElectricControlTintRenderUtil.renderTintedNativeControl(
             ctx = ctx,
             x = x,
             y = by,
             w = w,
             h = bh,
-            bootstrapType = comp.type,
-            outline = comp.outline,
+            bootstrapType = if (allowBs) comp.type else BootstrapType.NONE,
+            outline = if (allowBs) comp.outline else false,
             isSunken = false,
             isHovered = comp.isHovered,
             isPressed = comp.isActivePressed,

@@ -17,7 +17,7 @@ import com.nexustools.genericui.enums.system.BackendTarget
  * - **Multi-Target Apple / Linux Support**: Supports running suites explicitly against
  *   specific [BackendTarget]s (`runSuiteForTarget` / `runSuiteAcrossTargets`), including
  *   both `BackendTarget.IOS` and `BackendTarget.IPadOS` on Apple UIKit and both
- *   `BackendTarget.Gtk` and `BackendTarget.Qt` on Linux.
+ *   `BackendTarget.Gtk` and `BackendTarget.Kde` on Linux.
  * - **JUnit / Robolectric Integration**: Executes inside standard JVM Swing and Android JUnit 4
  *   runners while sharing the exact same test DSL.
  */
@@ -37,12 +37,14 @@ object JestElectricRunner {
         visualOnWindows: Boolean = true,
         throwOnFailure: Boolean = true,
         perTestTimeoutMs: Long = 15_000L,
-        runnerImpl: JestElectricRunnerNativeImpl = JestElectricNativeRegistry.current(),
+        runnerImpl: JestElectricRunnerNativeImpl? = null,
         block: JestSuiteScope.() -> Unit
     ): JestSuiteReport {
+        val previousFactory = GenericUI.activeFactory
+        val effectiveRunner = runnerImpl ?: JestElectricNativeRegistry.current()
         val rootScope = JestSuiteScope(
             suitePath = suiteName,
-            runnerImpl = runnerImpl,
+            runnerImpl = effectiveRunner,
             visualOnWindows = visualOnWindows,
             perTestTimeoutMs = perTestTimeoutMs
         )
@@ -51,7 +53,12 @@ object JestElectricRunner {
         try {
             rootScope.executeInto(results)
         } finally {
-            runnerImpl.closeVisualWindow()
+            effectiveRunner.closeVisualWindow()
+            if (previousFactory != null) {
+                GenericUI.initialize(previousFactory)
+            } else {
+                GenericUI.activeFactory = null
+            }
         }
         val report = JestSuiteReport(suiteName = suiteName, results = results)
         println(report.formatSummary())
@@ -105,7 +112,7 @@ object JestElectricRunner {
 
     /**
      * Executes the same suite sequentially across each target in [targets] (for example,
-     * `listOf(BackendTarget.IOS, BackendTarget.IPadOS)` or `listOf(BackendTarget.Gtk, BackendTarget.Qt)`)
+     * `listOf(BackendTarget.IOS, BackendTarget.IPadOS)` or `listOf(BackendTarget.Gtk, BackendTarget.Kde)`)
      * and returns the per-target [JestSuiteReport] map.
      */
     fun runSuiteAcrossTargets(
@@ -140,7 +147,7 @@ object JestElectricRunner {
         visualOnWindows: Boolean = true,
         throwOnFailure: Boolean = true,
         perTestTimeoutMs: Long = 15_000L,
-        runnerImpl: JestElectricRunnerNativeImpl = JestElectricNativeRegistry.current(),
+        runnerImpl: JestElectricRunnerNativeImpl? = null,
         block: JestSuiteScope.() -> Unit
     ): JestSuiteReport = runSuite(
         suiteName = suiteName,

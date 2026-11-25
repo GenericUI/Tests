@@ -24,6 +24,7 @@ object SwingJestElectricBootstrap {
     fun installIfEnabled(): SwingJUnitRunnerNativeImpl {
         val current = JestElectricNativeRegistry.current()
         if (current is SwingJUnitRunnerNativeImpl) {
+            current.ensureBackendInitialized()
             return current
         }
         return install()

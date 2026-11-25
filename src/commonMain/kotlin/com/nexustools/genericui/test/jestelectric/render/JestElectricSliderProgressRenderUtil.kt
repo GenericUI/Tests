@@ -4,8 +4,10 @@ import com.nexustools.genericui.component.feedback.ProgressBar
 import com.nexustools.genericui.component.feedback.Spinner
 import com.nexustools.genericui.component.form.RangeSlider
 import com.nexustools.genericui.component.form.Slider
+import com.nexustools.genericui.component.form.StyledSlider
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.enums.bootstrap.BootstrapType
+import com.nexustools.genericui.style.theme.ThemeConfig
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -14,14 +16,15 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * Renders slider and progress controls ([Slider], [RangeSlider], [ProgressBar], [Spinner])
- * using native OS track/bar chrome + [BootstrapType] fill tinting via
- * [JestElectricControlTintRenderUtil], ignoring aesthetic `ComponentStyle` overrides on system targets.
+ * Renders slider and progress controls ([Slider], [StyledSlider], [RangeSlider], [ProgressBar], [Spinner])
+ * using native OS track/bar chrome or styled visual specs while strictly ignoring [BootstrapType] on
+ * non-web system targets.
  */
 object JestElectricSliderProgressRenderUtil {
 
     fun canRender(comp: AbstractComponent): Boolean =
-        comp is RangeSlider ||
+        comp is StyledSlider ||
+            comp is RangeSlider ||
             comp is Slider ||
             comp is ProgressBar ||
             comp is Spinner
@@ -36,6 +39,10 @@ object JestElectricSliderProgressRenderUtil {
     ): Boolean {
         if (w <= 0 || h <= 0) return true
         return when (comp) {
+            is StyledSlider -> {
+                renderStyledSlider(ctx, x, y, w, h, comp)
+                true
+            }
             is RangeSlider -> {
                 renderRangeSlider(ctx, x, y, w, h, comp)
                 true
@@ -54,6 +61,47 @@ object JestElectricSliderProgressRenderUtil {
             }
             else -> false
         }
+    }
+
+    private fun renderStyledSlider(
+        ctx: JestElectricRenderContext,
+        x: Int,
+        y: Int,
+        w: Int,
+        h: Int,
+        comp: StyledSlider
+    ) {
+        val spec = comp.resolveVisualSpec()
+        JestElectricContainerChromeRenderUtil.renderStyledVisualSurface(
+            ctx = ctx,
+            x = x,
+            y = y,
+            w = w,
+            h = h,
+            comp = comp,
+            spec = spec,
+            allowBootstrapTint = ctx.allowsBootstrapTypeOnComponent(comp)
+        )
+        val trackH = 6
+        val ty = y + (h - trackH) / 2
+        val trackW = (w - 8).coerceAtLeast(8)
+        JestElectricControlTintRenderUtil.fillRect(ctx.buffer, x + 4, ty, trackW, trackH, ctx.borderSubtle)
+        val pct = comp.normalizedFraction.toFloat().coerceIn(0f, 1f)
+        val fillW = (trackW * pct).roundToInt()
+        val allowBs = ctx.allowsBootstrapTypeOnComponent(comp)
+        val fillColor = if (allowBs && comp.type != BootstrapType.NONE) {
+            ctx.resolveBootstrapColor(comp.type)
+        } else {
+            ctx.accent
+        }
+        if (fillW > 0) {
+            JestElectricControlTintRenderUtil.fillRect(ctx.buffer, x + 4, ty, fillW, trackH, fillColor)
+        }
+        val knobSize = 12.coerceAtMost(h)
+        val knobX = (x + 4 + fillW - knobSize / 2).coerceIn(x + 2, (x + w - knobSize - 2).coerceAtLeast(x + 2))
+        val knobY = y + (h - knobSize) / 2
+        JestElectricControlTintRenderUtil.fillRect(ctx.buffer, knobX, knobY, knobSize, knobSize, ctx.bgElevated)
+        JestElectricControlTintRenderUtil.drawRectBorder(ctx.buffer, knobX, knobY, knobSize, knobSize, ctx.borderStrong, 1)
     }
 
     private fun renderSlider(
@@ -90,14 +138,13 @@ object JestElectricSliderProgressRenderUtil {
         val span = (comp.max - comp.min).takeIf { abs(it) > 1e-6 } ?: 100.0
         val pct = ((comp.value - comp.min) / span).toFloat().coerceIn(0f, 1f)
         val fillW = (trackW * pct).roundToInt()
-        val fillType = comp.type.takeIf { it != BootstrapType.NONE } ?: BootstrapType.PRIMARY
-        val fillColor = ctx.resolveBootstrapColor(fillType)
+        val fillColor = ctx.accent
 
         if (fillW > 0) {
             JestElectricControlTintRenderUtil.fillRect(ctx.buffer, x + 4, ty + 1, fillW, trackH - 2, fillColor)
         }
 
-        // Native thumb button with BootstrapType tinting
+        // Native thumb button ignoring BootstrapType
         val thumbW = 10
         val thumbH = 14.coerceAtMost(h)
         val thumbX = (x + 4 + fillW - thumbW / 2).coerceIn(x + 2, (x + w - thumbW - 2).coerceAtLeast(x + 2))
@@ -108,7 +155,7 @@ object JestElectricSliderProgressRenderUtil {
             y = thumbY,
             w = thumbW,
             h = thumbH,
-            bootstrapType = comp.type,
+            bootstrapType = BootstrapType.NONE,
             isHovered = comp.isHovered,
             isPressed = comp.isActivePressed,
             isFocused = comp.isFocused,
@@ -151,8 +198,7 @@ object JestElectricSliderProgressRenderUtil {
         val p1 = ((comp.upperValue - comp.min) / span).toFloat().coerceIn(p0, 1f)
         val x0 = x + 4 + (trackW * p0).roundToInt()
         val x1 = x + 4 + (trackW * p1).roundToInt()
-        val fillType = comp.type.takeIf { it != BootstrapType.NONE } ?: BootstrapType.PRIMARY
-        val fillColor = ctx.resolveBootstrapColor(fillType)
+        val fillColor = ctx.accent
 
         JestElectricControlTintRenderUtil.fillRect(
             ctx.buffer,
@@ -171,7 +217,7 @@ object JestElectricSliderProgressRenderUtil {
             y = thumbY,
             w = thumbW,
             h = thumbH,
-            bootstrapType = comp.type,
+            bootstrapType = BootstrapType.NONE,
             isEnabled = comp.isEnabled
         )
         JestElectricControlTintRenderUtil.renderTintedNativeControl(
@@ -180,7 +226,7 @@ object JestElectricSliderProgressRenderUtil {
             y = thumbY,
             w = thumbW,
             h = thumbH,
-            bootstrapType = comp.type,
+            bootstrapType = BootstrapType.NONE,
             isEnabled = comp.isEnabled
         )
     }
@@ -218,7 +264,7 @@ object JestElectricSliderProgressRenderUtil {
         val rawProgress = if (comp.progress > 1f) comp.progress / 100f else comp.progress
         val pct = if (comp.isIndeterminate || comp.isBusy) 0.6f else rawProgress.coerceIn(0f, 1f)
         val fillW = ((w - 2) * pct).roundToInt()
-        val fillType = comp.type.takeIf { it != BootstrapType.NONE } ?: BootstrapType.PRIMARY
+        val systemFillColor = ctx.accent
         if (fillW > 0) {
             val fillOffscreen = JestElectricControlTintRenderUtil.renderNativeControlSpriteOffscreen(
                 w = fillW,
@@ -229,7 +275,7 @@ object JestElectricSliderProgressRenderUtil {
             )
             JestElectricControlTintRenderUtil.tintOffscreenControlBuffer(
                 offscreen = fillOffscreen,
-                tintColor = ctx.resolveBootstrapColor(fillType),
+                tintColor = systemFillColor,
                 isDark = ctx.isDark,
                 outline = false,
                 isEnabled = comp.isEnabled
@@ -247,7 +293,7 @@ object JestElectricSliderProgressRenderUtil {
         }
         val lbl = comp.label ?: "${(pct * 100).roundToInt()}%"
         if (lbl.isNotEmpty() && bh >= 14) {
-            val fg = if (pct >= 0.5f) ctx.resolveBootstrapForeground(fillType) else ctx.textPrimary
+            val fg = if (pct >= 0.5f) ThemeConfig.autoContrastForeground(systemFillColor) else ctx.textPrimary
             val tw = JestElectricControlTintRenderUtil.measureTextWidth(lbl, 1)
             JestElectricControlTintRenderUtil.drawTextClipped(
                 buf = ctx.buffer,
@@ -272,8 +318,7 @@ object JestElectricSliderProgressRenderUtil {
         val r = (min(w, h) / 2 - 2).coerceIn(5, 10)
         val cx = x + r + 4
         val cy = y + h / 2
-        val spinColor = comp.type.takeIf { it != BootstrapType.NONE }?.let { ctx.resolveBootstrapColor(it) }
-            ?: ctx.accent
+        val spinColor = ctx.accent
         JestElectricControlTintRenderUtil.drawCircle(ctx.buffer, cx, cy, r, ctx.borderSubtle)
         // Active spinner arc (270 degrees)
         for (deg in 0 until 270 step 4) {

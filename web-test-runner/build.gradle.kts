@@ -29,7 +29,7 @@ genericui {
         baseName = "genericui-web-test-runner"
     }
     backends {
-        // Strictly supports ONLY native desktop targets: windows, macos, gtk, qt.
+        // Strictly supports ONLY native desktop targets: windows, macos, gtk, kde.
         // Explicitly disables swing, android, ios, and web.
         allNativeDesktop()
     }

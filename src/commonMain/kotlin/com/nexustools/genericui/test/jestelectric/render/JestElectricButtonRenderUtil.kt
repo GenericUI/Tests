@@ -292,6 +292,9 @@ object JestElectricButtonRenderUtil {
         val by = y + (h - bh) / 2
         val caretW = 22.coerceAtMost((w / 3).coerceAtLeast(14))
         val mainW = (w - caretW).coerceAtLeast(12)
+        val allowBs = ctx.allowsBootstrapTypeOnComponent(comp)
+        val effectiveType = if (allowBs) comp.type else BootstrapType.NONE
+        val effectiveOutline = if (allowBs) comp.outline else false
 
         JestElectricControlTintRenderUtil.renderTintedNativeControl(
             ctx = ctx,
@@ -299,8 +302,8 @@ object JestElectricButtonRenderUtil {
             y = by,
             w = mainW,
             h = bh,
-            bootstrapType = comp.type,
-            outline = comp.outline,
+            bootstrapType = effectiveType,
+            outline = effectiveOutline,
             isHovered = comp.isHovered,
             isPressed = comp.isActivePressed,
             isFocused = comp.isFocused,
@@ -314,8 +317,8 @@ object JestElectricButtonRenderUtil {
             y = by,
             w = caretW,
             h = bh,
-            bootstrapType = comp.type,
-            outline = comp.outline,
+            bootstrapType = effectiveType,
+            outline = effectiveOutline,
             isHovered = comp.isHovered,
             isPressed = comp.isActivePressed,
             isFocused = comp.isFocused,

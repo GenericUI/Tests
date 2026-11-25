@@ -14,12 +14,16 @@ import com.nexustools.genericui.enums.system.BackendTarget
 import com.nexustools.genericui.style.color.RgbaColor
 import com.nexustools.genericui.style.css.CssFilter
 import com.nexustools.genericui.style.css.CssLength
+import com.nexustools.genericui.tests.DefaultJestElectricRunnerNativeImpl
 import com.nexustools.genericui.tests.JestElectricNativeRegistry
 import com.nexustools.genericui.tests.JestElectricRunner
+import com.nexustools.genericui.tests.ScreenshotVerificationHelper
+import com.nexustools.genericui.tests.createPlatformDefaultJestElectricRunner
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -186,6 +190,21 @@ class AndroidRunnerTest : JestElectricRobolectricTestBase() {
                 assertEquals(32, decoded.width, "Expected scaled width 32 rather than unscaled 256")
                 assertEquals(32, decoded.height, "Expected scaled height 32 rather than unscaled 256")
             }
+
+            it("captures genuine Android View Bitmap and PNG via captureScreenshot and captureScreenshotPng") {
+                val appCtrl = launchApp(visualOnWindows = false) {
+                    ScreenshotVerificationHelper.buildStyledSampleFragmentApp("Android View PNG")
+                }
+                val buffer = appCtrl.captureScreenshot(width = 360, height = 640)
+                val pngBytes = appCtrl.captureScreenshotPng(width = 360, height = 640)
+                ScreenshotVerificationHelper.assertValidNativePngScreenshot(
+                    buffer = buffer,
+                    pngBytes = pngBytes,
+                    expectedW = 360,
+                    expectedH = 640,
+                    contextLabel = "Android"
+                )
+            }
         }
 
         assertTrue(report.allPassed)
@@ -193,7 +212,9 @@ class AndroidRunnerTest : JestElectricRobolectricTestBase() {
         // Verify resetToDefault() automatically selects AndroidRobolectricRunnerNativeImpl on :android
         JestElectricNativeRegistry.resetToDefault()
         val autoRunner = JestElectricNativeRegistry.current()
+        assertNotEquals(DefaultJestElectricRunnerNativeImpl::class, autoRunner::class)
         assertTrue(autoRunner is AndroidRobolectricRunnerNativeImpl)
+        assertTrue(createPlatformDefaultJestElectricRunner() is AndroidRobolectricRunnerNativeImpl)
         val autoReport = JestElectricRunner.runSuite("Auto RoboElectricRunner Dispatch") {
             it("automatically uses RoboElectricRunner backend on Android") {
                 expect(JestElectricNativeRegistry.current().backendTarget).toBe(BackendTarget.Android)

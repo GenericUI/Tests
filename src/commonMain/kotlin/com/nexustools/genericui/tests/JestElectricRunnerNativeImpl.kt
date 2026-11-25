@@ -8,7 +8,7 @@ import com.nexustools.genericui.enums.system.BackendTarget
 /**
  * Platform-native runner bridge for `JestElectricRunner`.
  *
- * Each GenericUI target backend (`Windows`, `MacOS`, `Gtk`, `Qt`, `Swing`,
+ * Each GenericUI target backend (`Windows`, `MacOS`, `Gtk`, `Kde`, `Swing`,
  * `Android`, `IOS`, `IPadOS`, `Web`) provides a concrete implementation of this interface.
  *
  * On Windows, the implementation launches the actual Win32 window via
@@ -101,6 +101,26 @@ interface JestElectricRunnerNativeImpl : Disposable {
         width: Int = 1280,
         height: Int = 800
     ): com.nexustools.genericui.image.ImageBuffer? = null
+
+    /**
+     * Captures a rendered screenshot of [app] (or the active application) encoded as PNG bytes.
+     */
+    fun captureScreenshotPng(
+        app: Application? = null,
+        width: Int = 1280,
+        height: Int = 800
+    ): ByteArray? = null
+
+    /**
+     * Captures a rendered screenshot of [app] (or the active application) and saves it as a standard
+     * PNG file at [outputPath] (or under `examples/screenshots/` when relative).
+     */
+    fun saveScreenshotPng(
+        outputPath: String,
+        app: Application? = null,
+        width: Int = 1280,
+        height: Int = 800
+    ): String? = null
 
     /**
      * Captures a rendered screenshot of [app] (or the active application) and saves it as a standard

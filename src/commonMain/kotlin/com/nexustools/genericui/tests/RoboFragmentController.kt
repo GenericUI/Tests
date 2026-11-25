@@ -89,11 +89,10 @@ class RoboFragmentController<F : Fragment>(
     }
 
     /**
-     * Flushes fragment timers (`setTimeout` / `setInterval`) and advances transitions by [durationMs].
+     * Flushes fragment timers (`setTimeout` / `setInterval`), [Animator], and transitions by [durationMs].
      */
     fun idleMainLooper(durationMs: Long = 32L): RoboFragmentController<F> {
         fragment.flushTimeouts(durationMs.toInt())
-        fragment.stepTransitions(durationMs.toFloat())
         runnerImpl.pumpUiEvents(durationMs)
         return this
     }

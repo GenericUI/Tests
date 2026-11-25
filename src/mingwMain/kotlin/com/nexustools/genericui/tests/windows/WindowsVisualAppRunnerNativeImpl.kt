@@ -6,12 +6,18 @@ import com.nexustools.genericui.component.shell.Application
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.GenericUI
 import com.nexustools.genericui.enums.system.BackendTarget
+import com.nexustools.genericui.geometry.Size
 import com.nexustools.genericui.image.ImageBuffer
+import com.nexustools.genericui.image.ImageEncodeOptions
+import com.nexustools.genericui.image.ImageFormat
+import com.nexustools.genericui.image.codec.LibPngCodec
 import com.nexustools.genericui.tests.DefaultJestElectricRunnerNativeImpl
 import com.nexustools.genericui.tests.desktop.DesktopSharedRunnerNativeImpl
 import com.nexustools.genericui.windows.Win32NativeWindowHost
 import com.nexustools.genericui.windows.WindowsApplicationNativeImpl
 import com.nexustools.genericui.windows.WindowsNativeFactory
+import com.nexustools.genericui.windows.WindowsWicImageCodecNativeImpl
+import com.nexustools.genericui.windows.WindowsWindowNativeImpl
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.allocArray
@@ -29,12 +35,11 @@ import platform.windows.CreateDirectoryA
 private val windowsScreenshotHostHooksInit: Boolean = WindowsVisualAppRunnerNativeImpl.installHostFileHooks()
 
 /**
- * Windows Win32 visual runner implementation of `JestElectricRunnerNativeImpl`.
+ * Windows Win32 runner implementation of `JestElectricRunnerNativeImpl`.
  *
- * When [visualWindowEnabled] is `true` (default), launching an [Application] in a `JestElectricRunner`
- * test opens the real Win32 native window (`Win32NativeWindowHost`) on screen with `visualTestMode = true`,
- * displays a live test banner in the window titlebar, pumps Win32 messages between interactions, and
- * visually executes clicks, text entry, hover/focus states, and menu actions in real time.
+ * Delegates window presentation and pixel screenshot capture to [Win32NativeWindowHost] against
+ * the live retained Win32 native control hierarchy (`visualWindowEnabled = true` on-screen or
+ * `visualWindowEnabled = false` headless), never falling back to synthetic component snapshots.
  */
 class WindowsVisualAppRunnerNativeImpl(
     var visualWindowEnabled: Boolean = true,
@@ -188,9 +193,26 @@ class WindowsVisualAppRunnerNativeImpl(
         width: Int,
         height: Int
     ): ImageBuffer? {
-        if (visualWindowEnabled && Win32NativeWindowHost.activeHwnd != null) {
-            Win32NativeWindowHost.captureWindowScreenshot(width, height)?.let { return it }
-        }
-        return super.captureScreenshot(app, width, height)
+        val targetApp = prepareAppForScreenshot(app, pumpMs = 16L) ?: return null
+
+        val winImpl = targetApp.mainWindow.nativeImpl as? WindowsWindowNativeImpl ?: return null
+        val fallbackSize = winImpl.getWindowSize()
+        val targetW = (if (width > 0) width else fallbackSize.width).coerceAtLeast(1)
+        val targetH = (if (height > 0) height else fallbackSize.height).coerceAtLeast(1)
+        winImpl.setWindowSize(Size(targetW, targetH))
+
+        return Win32NativeWindowHost.captureWindowScreenshot(winImpl, targetW, targetH)
+    }
+
+    override fun captureScreenshotPng(
+        app: Application?,
+        width: Int,
+        height: Int
+    ): ByteArray? {
+        val buffer = captureScreenshot(app, width, height) ?: return null
+        return WindowsWicImageCodecNativeImpl().encode(
+            buffer = buffer,
+            options = ImageEncodeOptions(format = ImageFormat.PNG)
+        ) ?: LibPngCodec.encode(buffer)
     }
 }

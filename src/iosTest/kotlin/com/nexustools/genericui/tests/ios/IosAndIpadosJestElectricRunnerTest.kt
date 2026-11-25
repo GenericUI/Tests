@@ -15,8 +15,11 @@ import com.nexustools.genericui.ios.IosNativeFactory
 import com.nexustools.genericui.ipados.IpadosMenuBarBridge
 import com.nexustools.genericui.ipados.IpadosNativeFactory
 import com.nexustools.genericui.ipados.IpadosWindowImpl
+import com.nexustools.genericui.tests.DefaultJestElectricRunnerNativeImpl
 import com.nexustools.genericui.tests.JestElectricNativeRegistry
 import com.nexustools.genericui.tests.JestElectricRunner
+import com.nexustools.genericui.tests.ScreenshotVerificationHelper
+import com.nexustools.genericui.tests.createPlatformDefaultJestElectricRunner
 import com.nexustools.genericui.tests.ipados.IpadosJestElectricBootstrap
 import com.nexustools.genericui.tests.ipados.IpadosJestElectricRunnerNativeImpl
 import com.nexustools.genericui.window.TitleBar
@@ -24,6 +27,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
@@ -115,10 +119,37 @@ class IosAndIpadosJestElectricRunnerTest {
                     assertFalse(activeFactory.supportsSystemMenuBar)
                 }
             }
+
+            it("captures genuine UIKit CALayer PNG screenshots on iOS and iPadOS") {
+                val activeFactory = GenericUI.requireFactory()
+                val appCtrl = launchApp(visualOnWindows = false) {
+                    ScreenshotVerificationHelper.buildStyledSampleFragmentApp("UIKit ${activeFactory.backendName}")
+                }
+                val buffer = appCtrl.captureScreenshot(width = 390, height = 844)
+                val pngBytes = appCtrl.captureScreenshotPng(width = 390, height = 844)
+                ScreenshotVerificationHelper.assertValidNativePngScreenshot(
+                    buffer = buffer,
+                    pngBytes = pngBytes,
+                    expectedW = 390,
+                    expectedH = 844,
+                    contextLabel = activeFactory.backendName
+                )
+            }
         }
 
         assertEquals(2, reports.size)
         assertTrue(reports.getValue(BackendTarget.IOS).allPassed)
         assertTrue(reports.getValue(BackendTarget.IPadOS).allPassed)
+    }
+
+    @Test
+    fun testPlatformDefaultRunnerSelectsIosNativeRunner() {
+        JestElectricNativeRegistry.resetToDefault()
+        val defaultRunner = createPlatformDefaultJestElectricRunner()
+        assertNotEquals(DefaultJestElectricRunnerNativeImpl::class, defaultRunner::class)
+        assertTrue(defaultRunner is IosJestElectricRunnerNativeImpl)
+        assertTrue(JestElectricNativeRegistry.current() is IosJestElectricRunnerNativeImpl)
+        assertEquals(BackendTarget.IOS, defaultRunner.backendTarget)
+        assertTrue(GenericUI.activeFactory is IosNativeFactory)
     }
 }

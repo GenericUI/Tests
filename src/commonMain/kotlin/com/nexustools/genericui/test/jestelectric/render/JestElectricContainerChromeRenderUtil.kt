@@ -2,14 +2,17 @@ package com.nexustools.genericui.test.jestelectric.render
 
 import com.nexustools.genericui.component.action.Button
 import com.nexustools.genericui.component.action.Toolbar
+import com.nexustools.genericui.component.composite.Composite
 import com.nexustools.genericui.component.content.Table
 import com.nexustools.genericui.component.dock.DockWorkspace
 import com.nexustools.genericui.component.feedback.Alert
+import com.nexustools.genericui.component.feedback.Banner
 import com.nexustools.genericui.component.feedback.ProgressBar
 import com.nexustools.genericui.component.form.CheckBox
 import com.nexustools.genericui.component.form.NumberField
 import com.nexustools.genericui.component.form.Select
 import com.nexustools.genericui.component.form.Slider
+import com.nexustools.genericui.component.form.StyledSlider
 import com.nexustools.genericui.component.form.TextArea
 import com.nexustools.genericui.component.form.TextField
 import com.nexustools.genericui.component.fragment.FragmentContainer
@@ -33,6 +36,7 @@ import com.nexustools.genericui.component.surface.Accordion
 import com.nexustools.genericui.component.surface.AccordionItem
 import com.nexustools.genericui.component.surface.Card
 import com.nexustools.genericui.component.surface.CollapsiblePanel
+import com.nexustools.genericui.component.surface.StyledComponent
 import com.nexustools.genericui.component.system.StatusBar
 import com.nexustools.genericui.component.tabs.TabContainer
 import com.nexustools.genericui.component.typography.Badge
@@ -44,39 +48,47 @@ import com.nexustools.genericui.core.AbstractContainer
 import com.nexustools.genericui.enums.bootstrap.BootstrapType
 import com.nexustools.genericui.enums.bootstrap.FlexDirection
 import com.nexustools.genericui.enums.bootstrap.FlexWrap
+import com.nexustools.genericui.enums.css.CssPosition
 import com.nexustools.genericui.image.PixelFormat
 import com.nexustools.genericui.style.color.RgbaColor
 import com.nexustools.genericui.style.css.CssFilter
+import com.nexustools.genericui.style.css.StyledVisualSpec
 import com.nexustools.genericui.style.policy.AestheticStylePolicy
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Renders layout and surface containers ([StyledContainer], [Card], [CollapsiblePanel],
- * [Accordion], [AccordionItem], [Alert], [Divider], [ColumnContainer], [HStack], [VStack],
- * [FlexBox], [FragmentContainer], and generic [AbstractContainer] instances).
- *
- * - On non-web system targets: renders native system surface or [BootstrapType] tint on standard
- *   containers while ignoring aesthetic `ComponentStyle` overrides (`backgroundColor`, `borderColor`,
- *   `borderRadiusPx`, `boxShadow`).
- * - Honors full `ComponentStyle` background/border/radius/shadow ONLY on [StyledContainer], Web,
- *   or when [JestElectricRenderContext.isHostedInCustomStyleEngine] is `true`.
- * - Honors `FlexWrap.WRAP` (`comp.bootstrap.flexWrap == FlexWrap.WRAP || comp.style.flexWrap == FlexWrap.WRAP`)
- *   to wrap flex children across multiple lines during both layout measurement and placement.
+ * Renders layout and surface components ([StyledContainer], [StyledComponent], [Composite],
+ * [Card], [CollapsiblePanel], [Accordion], [AccordionItem], [Alert], [Banner], [Divider],
+ * [ColumnContainer], [HStack], [VStack], [FlexBox], [FragmentContainer], and generic
+ * [AbstractContainer] instances) with strict z-index ordering, out-of-flow `position: absolute` /
+ * `fixed` partitioning, and strict [BootstrapType] policy enforcement.
  */
 object JestElectricContainerChromeRenderUtil {
+
+    private data class ChildPlacement(
+        val child: AbstractComponent,
+        val x: Int,
+        val y: Int,
+        val w: Int,
+        val h: Int,
+        val sourceOrder: Int
+    )
 
     fun canRender(comp: AbstractComponent): Boolean =
         comp is Divider ||
             comp is Alert ||
+            comp is Banner ||
             comp is Card ||
             comp is CollapsiblePanel ||
             comp is Accordion ||
             comp is AccordionItem ||
             comp is ColumnContainer ||
             comp is FragmentContainer ||
+            comp is StyledComponent ||
             comp is StyledContainer ||
+            (comp is Composite && comp !is StyledSlider) ||
             comp is HStack ||
             comp is VStack ||
             comp is FlexBox ||
@@ -99,6 +111,36 @@ object JestElectricContainerChromeRenderUtil {
             }
             is Alert -> {
                 renderAlert(ctx, x, y, w, h, comp)
+                true
+            }
+            is Banner -> {
+                renderBanner(ctx, x, y, w, h, comp, depth)
+                true
+            }
+            is StyledComponent -> {
+                renderStyledVisualSurface(
+                    ctx = ctx,
+                    x = x,
+                    y = y,
+                    w = w,
+                    h = h,
+                    comp = comp,
+                    spec = comp.resolveCurrentVisualSpec(),
+                    allowBootstrapTint = ctx.allowsBootstrapTypeOnComponent(comp)
+                )
+                true
+            }
+            is Composite -> {
+                renderStyledVisualSurface(
+                    ctx = ctx,
+                    x = x,
+                    y = y,
+                    w = w,
+                    h = h,
+                    comp = comp,
+                    spec = comp.resolveVisualSpec(),
+                    allowBootstrapTint = ctx.allowsBootstrapTypeOnComponent(comp)
+                )
                 true
             }
             is Card -> {
@@ -255,36 +297,118 @@ object JestElectricContainerChromeRenderUtil {
         h: Int,
         comp: AbstractComponent
     ) {
+        val spec = (comp as? StyledContainer)?.resolveVisualSpec()
+        renderStyledVisualSurface(
+            ctx = ctx,
+            x = x,
+            y = y,
+            w = w,
+            h = h,
+            comp = comp,
+            spec = spec,
+            allowBootstrapTint = ctx.allowsBootstrapTypeOnComponent(comp)
+        )
+    }
+
+    private fun sanitizeVisualSpec(
+        comp: AbstractComponent,
+        spec: StyledVisualSpec?,
+        allowBootstrapTint: Boolean
+    ): StyledVisualSpec? {
+        if (spec == null || allowBootstrapTint) return spec
+        val sc = comp as? StyledComponent
+        val explicitHasBg = comp.style.backgroundColor != null ||
+            comp.computedStyle?.backgroundColor != null ||
+            (sc != null && (
+                sc.customBackgroundColor != null ||
+                    (!sc.isEnabled && (sc.disabledBackgroundColor != null || sc.computedStyle?.disabledStyle?.backgroundColor != null)) ||
+                    (sc.isActivePressed && (sc.activeBackgroundColor != null || sc.computedStyle?.activeStyle?.backgroundColor != null)) ||
+                    (sc.isHovered && (sc.hoverBackgroundColor != null || sc.computedStyle?.hoverStyle?.backgroundColor != null))
+                ))
+        val explicitHasBorder = comp.style.borderColor != null ||
+            comp.computedStyle?.borderColor != null ||
+            (sc != null && (
+                (!sc.isEnabled && (sc.disabledBorderColor != null || sc.computedStyle?.disabledStyle?.borderColor != null)) ||
+                    (sc.isActivePressed && (sc.activeBorderColor != null || sc.computedStyle?.activeStyle?.borderColor != null)) ||
+                    (sc.isHovered && (sc.hoverBorderColor != null || sc.computedStyle?.hoverStyle?.borderColor != null)) ||
+                    (sc.isFocused && (sc.focusBorderColor != null || sc.computedStyle?.focusStyle?.borderColor != null))
+                ))
+        return spec.copy(
+            backgroundColor = if (explicitHasBg) spec.backgroundColor else null,
+            borderColor = if (explicitHasBorder) spec.borderColor else null
+        )
+    }
+
+    fun renderStyledVisualSurface(
+        ctx: JestElectricRenderContext,
+        x: Int,
+        y: Int,
+        w: Int,
+        h: Int,
+        comp: AbstractComponent,
+        spec: StyledVisualSpec?,
+        allowBootstrapTint: Boolean
+    ) {
         val allowFullStyle = ctx.allowsFullComponentStyleOnContainer(comp)
-        if (comp is StyledContainer && AestheticStylePolicy.isStyledContainerOnly(comp) && w > 0 && h > 0) {
-            val spec = comp.resolveVisualSpec()
-            val effFilter = CssFilter.backdropBlurOrFilter(spec.backdropBlurPx, spec.backdropFilter)
-            if (effFilter != null && ctx.buffer.pixelFormat == PixelFormat.RGBA_8888) {
-                val filtered = effFilter.applyBackdropToImageBufferRegion(
-                    buffer = ctx.buffer,
-                    regionX = x,
-                    regionY = y,
-                    regionWidth = w,
-                    regionHeight = h,
-                    cornerRadiusPx = spec.borderRadiusPx ?: 0f
-                )
-                if (filtered !== ctx.buffer && ctx.buffer.bytes.size >= filtered.bytes.size) {
-                    filtered.bytes.copyInto(ctx.buffer.bytes)
-                }
+        val effSpec = sanitizeVisualSpec(comp, spec, allowBootstrapTint)
+        val effOpacity = (effSpec?.opacity ?: comp.opacity).coerceIn(0f, 1f)
+        if (effOpacity <= 0.001f || w <= 0 || h <= 0) return
+
+        fun applyOpacity(c: RgbaColor): RgbaColor =
+            if (effOpacity >= 0.999f) c else c.copy(a = (c.a * effOpacity).roundToInt().coerceIn(0, 255))
+
+        val effFilter = if (allowFullStyle) {
+            CssFilter.backdropBlurOrFilter(effSpec?.backdropBlurPx, effSpec?.backdropFilter)
+                ?: comp.style.backdropFilter
+                ?: comp.computedStyle?.backdropFilter
+        } else {
+            null
+        }
+        if (effFilter != null && ctx.buffer.pixelFormat == PixelFormat.RGBA_8888) {
+            val radiusPx = effSpec?.borderRadiusPx
+                ?: comp.style.borderRadiusPx
+                ?: comp.computedStyle?.borderRadiusPx
+                ?: 0f
+            val filtered = effFilter.applyBackdropToImageBufferRegion(
+                buffer = ctx.buffer,
+                regionX = x,
+                regionY = y,
+                regionWidth = w,
+                regionHeight = h,
+                cornerRadiusPx = radiusPx
+            )
+            if (filtered !== ctx.buffer && ctx.buffer.bytes.size >= filtered.bytes.size) {
+                filtered.bytes.copyInto(ctx.buffer.bytes)
             }
         }
-        val bgType = comp.backgroundType?.takeIf { it != BootstrapType.NONE }
-            ?: comp.bootstrap.backgroundType?.takeIf { it != BootstrapType.NONE }
-        val borderType = comp.borderType?.takeIf { it != BootstrapType.NONE }
-            ?: comp.bootstrap.borderType?.takeIf { it != BootstrapType.NONE }
 
-        val bgColor: RgbaColor? = when {
-            allowFullStyle -> comp.style.backgroundColor
+        val bgType = if (allowBootstrapTint) {
+            comp.backgroundType?.takeIf { it != BootstrapType.NONE }
+                ?: comp.bootstrap.backgroundType?.takeIf { it != BootstrapType.NONE }
+                ?: if (AestheticStylePolicy.isBootstrapSpecificNonControlComponent(comp)) {
+                    comp.type?.takeIf { it != BootstrapType.NONE }
+                } else {
+                    null
+                }
+        } else {
+            null
+        }
+        val borderType = if (allowBootstrapTint) {
+            comp.borderType?.takeIf { it != BootstrapType.NONE }
+                ?: comp.bootstrap.borderType?.takeIf { it != BootstrapType.NONE }
+        } else {
+            null
+        }
+
+        val rawBg: RgbaColor? = when {
+            allowFullStyle -> effSpec?.backgroundColor
+                ?: comp.style.backgroundColor
                 ?: comp.computedStyle?.backgroundColor
                 ?: bgType?.let { ctx.resolveBootstrapColor(it) }
-            bgType != null -> ctx.resolveBootstrapColor(bgType)
+            allowBootstrapTint && bgType != null -> ctx.resolveBootstrapColor(bgType)
             else -> null
         }
+        val bgColor = rawBg?.let(::applyOpacity)
 
         if (bgColor != null && bgColor.a > 0) {
             if (bgColor.a >= 250) {
@@ -294,21 +418,33 @@ object JestElectricContainerChromeRenderUtil {
             }
         }
 
-        val borderColor: RgbaColor? = when {
-            allowFullStyle -> comp.style.borderColor
+        val rawBorder: RgbaColor? = when {
+            allowFullStyle -> effSpec?.borderColor
+                ?: comp.style.borderColor
                 ?: comp.computedStyle?.borderColor
                 ?: borderType?.let { ctx.resolveBootstrapColor(it) }
-            borderType != null -> ctx.resolveBootstrapColor(borderType)
+            allowBootstrapTint && borderType != null -> ctx.resolveBootstrapColor(borderType)
             else -> null
         }
+        val borderColor = rawBorder?.let(::applyOpacity)
 
         if (borderColor != null && borderColor.a > 0) {
             val thickness = if (allowFullStyle) {
-                (comp.style.borderWidthPx ?: comp.computedStyle?.borderWidthPx ?: 1f).roundToInt().coerceIn(1, 4)
+                (effSpec?.borderWidthPx ?: comp.style.borderWidthPx ?: comp.computedStyle?.borderWidthPx ?: 1f)
+                    .roundToInt()
+                    .coerceIn(1, 4)
             } else {
                 1
             }
             JestElectricControlTintRenderUtil.drawRectBorder(ctx.buffer, x, y, w, h, borderColor, thickness)
+        }
+
+        val rawRingColor = effSpec?.focusRingColor
+        val rawRingWidth = effSpec?.focusRingWidthPx ?: 0f
+        if (allowFullStyle && comp.isFocused && rawRingColor != null && rawRingWidth > 0f) {
+            val ringCol = applyOpacity(rawRingColor)
+            val ringW = rawRingWidth.roundToInt().coerceIn(1, 3)
+            JestElectricControlTintRenderUtil.drawRectBorder(ctx.buffer, x, y, w, h, ringCol, ringW)
         }
     }
 
@@ -320,10 +456,52 @@ object JestElectricContainerChromeRenderUtil {
         h: Int,
         comp: Divider
     ) {
-        val color = comp.borderType?.takeIf { it != BootstrapType.NONE }?.let { ctx.resolveBootstrapColor(it) }
-            ?: ctx.borderSubtle
+        val color = if (ctx.allowsBootstrapTypeOnComponent(comp)) {
+            comp.borderType?.takeIf { it != BootstrapType.NONE }?.let { ctx.resolveBootstrapColor(it) }
+        } else {
+            null
+        } ?: ctx.borderSubtle
         val lineY = y + h / 2
         JestElectricControlTintRenderUtil.drawHLine(ctx.buffer, x + 2, x + w - 2, lineY, color)
+    }
+
+    private fun renderBanner(
+        ctx: JestElectricRenderContext,
+        x: Int,
+        y: Int,
+        w: Int,
+        h: Int,
+        banner: Banner,
+        depth: Int
+    ) {
+        val accent = ctx.resolveBootstrapColor(banner.type)
+        val bg = accent.blendOverSurface(ctx.bgCard, 0.22f)
+        JestElectricControlTintRenderUtil.fillRect(ctx.buffer, x, y, w, h, bg)
+        JestElectricControlTintRenderUtil.drawRectBorder(ctx.buffer, x, y, w, h, accent, 1)
+        JestElectricControlTintRenderUtil.fillRect(ctx.buffer, x, y, 4, h, accent)
+        if (banner.message.isNotEmpty()) {
+            JestElectricControlTintRenderUtil.drawTextClipped(
+                buf = ctx.buffer,
+                x = x + 10,
+                y = y + (h - 7).coerceAtLeast(4) / 2,
+                maxW = (w - 16).coerceAtLeast(1),
+                text = banner.message,
+                color = ctx.textPrimary,
+                scale = 1
+            )
+        }
+        if (banner.children.isNotEmpty()) {
+            renderHorizontalChildren(
+                ctx = ctx,
+                x = x + 10,
+                y = y + 2,
+                w = (w - 16).coerceAtLeast(1),
+                h = (h - 4).coerceAtLeast(1),
+                children = banner.children,
+                depth = depth + 1,
+                gap = 6
+            )
+        }
     }
 
     private fun renderCard(
@@ -480,9 +658,24 @@ object JestElectricContainerChromeRenderUtil {
         return 0
     }
 
+    private fun drawPlacementsInZOrder(
+        ctx: JestElectricRenderContext,
+        placements: List<ChildPlacement>,
+        depth: Int
+    ) {
+        if (placements.isEmpty()) return
+        val ordered = placements.sortedWith(
+            compareBy<ChildPlacement> { ctx.resolveEffectiveZIndex(it.child) }.thenBy { it.sourceOrder }
+        )
+        for (p in ordered) {
+            ctx.drawChild(p.x, p.y, p.w, p.h, p.child, depth)
+        }
+    }
+
     /**
      * Renders horizontal flex/stack children, supporting multi-line row wrapping when [wrap] is `true`
-     * (`FlexWrap.WRAP`).
+     * (`FlexWrap.WRAP`), out-of-flow `position: absolute` / `fixed` partitioning, and stable `z-index`
+     * paint ordering.
      */
     fun renderHorizontalChildren(
         ctx: JestElectricRenderContext,
@@ -498,78 +691,99 @@ object JestElectricContainerChromeRenderUtil {
         val visible = children.filter { it.isVisible && !it.mountedInTitleBar }
         if (visible.isEmpty()) return
 
-        if (wrap) {
-            val lines = partitionWrappedLines(visible, w, gap)
+        val inFlowIndices = mutableListOf<Int>()
+        val placements = mutableListOf<ChildPlacement>()
+        for ((idx, child) in visible.withIndex()) {
+            val pos = ctx.resolveEffectiveCssPosition(child)
+            if (pos == CssPosition.ABSOLUTE || pos == CssPosition.FIXED) {
+                placements.add(ChildPlacement(child, x, y, w, h, idx))
+            } else {
+                inFlowIndices.add(idx)
+            }
+        }
+        val inFlow = inFlowIndices.map { visible[it] }
+
+        if (inFlow.isNotEmpty() && wrap) {
+            val lines = partitionWrappedLines(inFlow, w, gap)
             if (lines.size > 1) {
                 var curY = y
                 val defaultLineH = ((h - gap * (lines.size - 1)) / lines.size).coerceIn(22, 42)
+                var inFlowCursor = 0
                 for (line in lines) {
-                    if (curY >= y + h - 4) break
+                    if (curY >= y + h - 4) {
+                        inFlowCursor += line.size
+                        continue
+                    }
                     val lineH = line.maxOfOrNull { estimateInlineHeight(it, defaultLineH) }
                         ?.coerceIn(20, (y + h - curY).coerceAtLeast(20))
                         ?: defaultLineH
                     var curX = x
                     for (child in line) {
+                        val orderIdx = inFlowIndices[inFlowCursor++]
                         val cw = estimateInlineWidth(child).coerceAtMost((x + w - curX).coerceAtLeast(16))
-                        if (curX + 8 > x + w) break
-                        val ch = estimateInlineHeight(child, lineH).coerceAtMost(lineH)
-                        val cy = curY + (lineH - ch) / 2
-                        ctx.drawChild(curX, cy, cw, ch, child, depth + 1)
+                        if (curX + 8 <= x + w) {
+                            val ch = estimateInlineHeight(child, lineH).coerceAtMost(lineH)
+                            val cy = curY + (lineH - ch) / 2
+                            placements.add(ChildPlacement(child, curX, cy, cw, ch, orderIdx))
+                        }
                         curX += cw + gap
                     }
                     curY += lineH + gap
                 }
+                drawPlacementsInZOrder(ctx, placements, depth + 1)
                 return
             }
         }
 
-        // Single-line horizontal layout: measure natural widths and distribute remaining width to expanding children
-        val widths = IntArray(visible.size)
-        val expanding = BooleanArray(visible.size)
-        var fixedSum = 0
-        var expandCount = 0
+        if (inFlow.isNotEmpty()) {
+            val widths = IntArray(inFlow.size)
+            val expanding = BooleanArray(inFlow.size)
+            var fixedSum = 0
+            var expandCount = 0
 
-        for ((i, child) in visible.withIndex()) {
-            val isExp = child is SplitPane || child is TabContainer || child is MdiContainer ||
-                child is DockWorkspace || child is ScrollView || child is LazyList ||
-                child is LazyGrid || child is TreeView<*> || child is Table ||
-                child is Card || child is VStack ||
-                JestElectricMediaCanvasRenderUtil.isExtensionCanvasOrSurface(child) ||
-                (child is TextField && child !is NumberField && visible.size <= 5)
-            if (isExp) {
-                expanding[i] = true
-                expandCount++
-            } else {
-                val est = estimateInlineWidth(child)
-                widths[i] = est
-                fixedSum += est
+            for ((i, child) in inFlow.withIndex()) {
+                val isExp = child is SplitPane || child is TabContainer || child is MdiContainer ||
+                    child is DockWorkspace || child is ScrollView || child is LazyList ||
+                    child is LazyGrid || child is TreeView<*> || child is Table ||
+                    child is Card || child is VStack ||
+                    JestElectricMediaCanvasRenderUtil.isExtensionCanvasOrSurface(child) ||
+                    (child is TextField && child !is NumberField && inFlow.size <= 5)
+                if (isExp) {
+                    expanding[i] = true
+                    expandCount++
+                } else {
+                    val est = estimateInlineWidth(child)
+                    widths[i] = est
+                    fixedSum += est
+                }
+            }
+
+            val totalGaps = gap * (inFlow.size - 1)
+            val availForExpand = (w - fixedSum - totalGaps).coerceAtLeast(0)
+            if (expandCount > 0) {
+                val each = (availForExpand / expandCount).coerceAtLeast(36)
+                for (i in inFlow.indices) {
+                    if (expanding[i]) widths[i] = each
+                }
+            } else if (fixedSum + totalGaps > w && fixedSum > 0) {
+                val scale = (w - totalGaps).coerceAtLeast(inFlow.size * 20).toFloat() / fixedSum.toFloat()
+                for (i in inFlow.indices) {
+                    widths[i] = (widths[i] * scale).roundToInt().coerceAtLeast(20)
+                }
+            }
+
+            var curX = x
+            for ((i, child) in inFlow.withIndex()) {
+                if (curX >= x + w - 4) break
+                val cw = widths[i].coerceAtMost(x + w - curX)
+                val ch = estimateInlineHeight(child, h).coerceAtMost(h)
+                val isExpVert = isExpandingVerticalComponent(child)
+                val cy = if (ch < h && !isExpVert) y + (h - ch) / 2 else y
+                placements.add(ChildPlacement(child, curX, cy, cw, if (isExpVert) h else ch, inFlowIndices[i]))
+                curX += cw + gap
             }
         }
-
-        val totalGaps = gap * (visible.size - 1)
-        val availForExpand = (w - fixedSum - totalGaps).coerceAtLeast(0)
-        if (expandCount > 0) {
-            val each = (availForExpand / expandCount).coerceAtLeast(36)
-            for (i in visible.indices) {
-                if (expanding[i]) widths[i] = each
-            }
-        } else if (fixedSum + totalGaps > w && fixedSum > 0) {
-            val scale = (w - totalGaps).coerceAtLeast(visible.size * 20).toFloat() / fixedSum.toFloat()
-            for (i in visible.indices) {
-                widths[i] = (widths[i] * scale).roundToInt().coerceAtLeast(20)
-            }
-        }
-
-        var curX = x
-        for ((i, child) in visible.withIndex()) {
-            if (curX >= x + w - 4) break
-            val cw = widths[i].coerceAtMost(x + w - curX)
-            val ch = estimateInlineHeight(child, h).coerceAtMost(h)
-            val isExpVert = isExpandingVerticalComponent(child)
-            val cy = if (ch < h && !isExpVert) y + (h - ch) / 2 else y
-            ctx.drawChild(curX, cy, cw, if (isExpVert) h else ch, child, depth + 1)
-            curX += cw + gap
-        }
+        drawPlacementsInZOrder(ctx, placements, depth + 1)
     }
 
     private fun partitionWrappedLines(
@@ -612,48 +826,63 @@ object JestElectricContainerChromeRenderUtil {
         val visible = children.filter { it.isVisible && !it.mountedInTitleBar }
         if (visible.isEmpty()) return
 
-        val heights = IntArray(visible.size)
-        val expanding = BooleanArray(visible.size)
-        var fixedSum = 0
-        var expandCount = 0
-
-        for ((i, child) in visible.withIndex()) {
-            if (isExpandingVerticalComponent(child)) {
-                expanding[i] = true
-                expandCount++
+        val inFlowIndices = mutableListOf<Int>()
+        val placements = mutableListOf<ChildPlacement>()
+        for ((idx, child) in visible.withIndex()) {
+            val pos = ctx.resolveEffectiveCssPosition(child)
+            if (pos == CssPosition.ABSOLUTE || pos == CssPosition.FIXED) {
+                placements.add(ChildPlacement(child, x, y, w, h, idx))
             } else {
-                val est = estimateNaturalHeight(child, w)
-                heights[i] = est
-                fixedSum += est
+                inFlowIndices.add(idx)
             }
         }
+        val inFlow = inFlowIndices.map { visible[it] }
 
-        val totalGaps = gap * (visible.size - 1)
-        val remaining = h - fixedSum - totalGaps
-        if (expandCount > 0 && remaining > expandCount * 48) {
-            val each = remaining / expandCount
-            for (i in visible.indices) {
-                if (expanding[i]) heights[i] = each
-            }
-        } else {
-            for (i in visible.indices) {
-                if (expanding[i]) {
-                    heights[i] = (remaining / expandCount.coerceAtLeast(1)).coerceIn(64, (h / 2).coerceAtLeast(64))
+        if (inFlow.isNotEmpty()) {
+            val heights = IntArray(inFlow.size)
+            val expanding = BooleanArray(inFlow.size)
+            var fixedSum = 0
+            var expandCount = 0
+
+            for ((i, child) in inFlow.withIndex()) {
+                if (isExpandingVerticalComponent(child)) {
+                    expanding[i] = true
+                    expandCount++
+                } else {
+                    val est = estimateNaturalHeight(child, w)
+                    heights[i] = est
+                    fixedSum += est
                 }
             }
-        }
 
-        var curY = y
-        for ((i, child) in visible.withIndex()) {
-            if (curY >= y + h - 4) break
-            val ch = if (i == visible.lastIndex && expanding[i]) {
-                (y + h - curY).coerceAtLeast(20)
+            val totalGaps = gap * (inFlow.size - 1)
+            val remaining = h - fixedSum - totalGaps
+            if (expandCount > 0 && remaining > expandCount * 48) {
+                val each = remaining / expandCount
+                for (i in inFlow.indices) {
+                    if (expanding[i]) heights[i] = each
+                }
             } else {
-                heights[i].coerceAtMost(y + h - curY)
+                for (i in inFlow.indices) {
+                    if (expanding[i]) {
+                        heights[i] = (remaining / expandCount.coerceAtLeast(1)).coerceIn(64, (h / 2).coerceAtLeast(64))
+                    }
+                }
             }
-            ctx.drawChild(x, curY, w, ch, child, depth + 1)
-            curY += ch + gap
+
+            var curY = y
+            for ((i, child) in inFlow.withIndex()) {
+                if (curY >= y + h - 4) break
+                val ch = if (i == inFlow.lastIndex && expanding[i]) {
+                    (y + h - curY).coerceAtLeast(20)
+                } else {
+                    heights[i].coerceAtMost(y + h - curY)
+                }
+                placements.add(ChildPlacement(child, x, curY, w, ch, inFlowIndices[i]))
+                curY += ch + gap
+            }
         }
+        drawPlacementsInZOrder(ctx, placements, depth + 1)
     }
 
     fun isExpandingVerticalComponent(comp: AbstractComponent): Boolean {
@@ -715,7 +944,7 @@ object JestElectricContainerChromeRenderUtil {
             }
             is Button, is TextField, is Select, is CheckBox, is Slider -> 28
             is ProgressBar -> 20
-            is Alert -> 34
+            is Alert, is Banner -> 34
             is Toolbar, is StatusBar, is MenuBar -> 34
             is HStack -> {
                 if (shouldWrapFlexChildren(comp)) {

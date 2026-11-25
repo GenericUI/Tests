@@ -3,6 +3,7 @@ package com.nexustools.genericui.tests.android
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
@@ -14,20 +15,27 @@ import com.nexustools.genericui.android.AndroidViewHandle
 import com.nexustools.genericui.android.AndroidWindowImpl
 import com.nexustools.genericui.component.form.CheckBox
 import com.nexustools.genericui.component.shell.Application
+import com.nexustools.genericui.component.shell.FragmentApplication
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.GenericUI
 import com.nexustools.genericui.enums.system.BackendTarget
+import com.nexustools.genericui.enums.ui.ThemeMode
+import com.nexustools.genericui.image.ImageBuffer
+import com.nexustools.genericui.image.ImageColorSpace
+import com.nexustools.genericui.image.PixelFormat
+import com.nexustools.genericui.style.color.RgbaColor
 import com.nexustools.genericui.tests.mobile.MobileSharedRunnerNativeImpl
 import org.robolectric.Robolectric
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows
 import org.robolectric.android.controller.ActivityController
+import java.io.ByteArrayOutputStream
 import java.time.Duration
 
 /**
  * Android Robolectric / JUnit runner implementation of `JestElectricRunnerNativeImpl`,
  * powered by [RoboElectricRunner] to execute tests against real Android `View` hierarchies,
- * attached `Activity`/`Window` roots, and the main Android `Looper`.
+ * attached `Activity`/`Window` roots, `Bitmap`/`Canvas` rasterization, and the main Android `Looper`.
  */
 class AndroidRobolectricRunnerNativeImpl : MobileSharedRunnerNativeImpl(
     factoryProvider = { AndroidNativeFactory() },
@@ -100,6 +108,11 @@ class AndroidRobolectricRunnerNativeImpl : MobileSharedRunnerNativeImpl(
             }
             ?: return null
         val targetApp = app ?: activeApp ?: return null
+        if (targetApp.appNativeImpl == null || targetApp.mainWindow.nativeImpl == null) {
+            targetApp.run(GenericUI.requireFactory())
+        }
+        targetApp.mainWindow.fragmentContainer?.ensureActiveFragmentStartedAndResumed()
+        (targetApp as? FragmentApplication)?.rootFragmentContainer?.ensureActiveFragmentStartedAndResumed()
         val windowImpl = targetApp.mainWindow.ensureNativeImpl() as? AndroidWindowImpl ?: return null
         val view = windowImpl.ensureAndroidView(ctx) ?: return null
 
@@ -149,8 +162,75 @@ class AndroidRobolectricRunnerNativeImpl : MobileSharedRunnerNativeImpl(
         layoutHostedRoot()
         val bmp = Bitmap.createBitmap(viewportWidthPx, viewportHeightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
+        if (root.background == null && hostedWindowView?.background == null) {
+            val currentApp = activeApp ?: Application.current
+            val isDark = currentApp?.getResolvedTheme() == ThemeMode.DARK
+            val bg = currentApp?.getThemeConfig()?.resolveEffectiveColors(isDark)?.background
+                ?: if (isDark) RgbaColor(18, 18, 20) else RgbaColor(248, 249, 250)
+            canvas.drawColor(Color.argb(255, bg.r, bg.g, bg.b))
+        }
         root.draw(canvas)
         return bmp
+    }
+
+    override fun captureScreenshot(
+        app: Application?,
+        width: Int,
+        height: Int
+    ): ImageBuffer? {
+        val bmp = captureAppBitmap(app, width, height) ?: return null
+        return try {
+            val w = bmp.width
+            val h = bmp.height
+            val pixels = IntArray(w * h)
+            bmp.getPixels(pixels, 0, w, 0, 0, w, h)
+            val rgba = ByteArray(w * h * 4)
+            for (i in pixels.indices) {
+                val argb = pixels[i]
+                val off = i * 4
+                rgba[off] = ((argb ushr 16) and 0xFF).toByte()
+                rgba[off + 1] = ((argb ushr 8) and 0xFF).toByte()
+                rgba[off + 2] = (argb and 0xFF).toByte()
+                rgba[off + 3] = ((argb ushr 24) and 0xFF).toByte()
+            }
+            ImageBuffer(
+                width = w,
+                height = h,
+                pixelFormat = PixelFormat.RGBA_8888,
+                colorSpace = ImageColorSpace.SRGB,
+                bytes = rgba
+            )
+        } finally {
+            bmp.recycle()
+        }
+    }
+
+    override fun captureScreenshotPng(
+        app: Application?,
+        width: Int,
+        height: Int
+    ): ByteArray? {
+        val bmp = captureAppBitmap(app, width, height) ?: return null
+        return try {
+            val baos = ByteArrayOutputStream()
+            if (!bmp.compress(Bitmap.CompressFormat.PNG, 100, baos)) return null
+            baos.toByteArray()
+        } finally {
+            bmp.recycle()
+        }
+    }
+
+    private fun captureAppBitmap(
+        app: Application?,
+        width: Int,
+        height: Int
+    ): Bitmap? {
+        val targetApp = prepareAppForScreenshot(app, pumpMs = 0L) ?: return null
+        val targetW = if (width > 0) width else viewportWidthPx
+        val targetH = if (height > 0) height else viewportHeightPx
+        materializeAndroidViewHierarchy(targetApp, targetW, targetH) ?: return null
+        pumpUiEvents(16L)
+        return renderHostedAndroidBitmap(targetW, targetH)
     }
 
     private fun layoutHostedRoot() {

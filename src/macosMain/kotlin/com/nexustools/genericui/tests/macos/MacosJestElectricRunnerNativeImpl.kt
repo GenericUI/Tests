@@ -2,14 +2,20 @@
 
 package com.nexustools.genericui.tests.macos
 
+import com.nexustools.genericui.apple.AppleImageIoCodecNativeImpl
 import com.nexustools.genericui.component.shell.Application
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.GenericUI
 import com.nexustools.genericui.enums.system.BackendTarget
+import com.nexustools.genericui.geometry.Size
 import com.nexustools.genericui.image.ImageBuffer
+import com.nexustools.genericui.image.ImageEncodeOptions
+import com.nexustools.genericui.image.ImageFormat
+import com.nexustools.genericui.image.codec.LibPngCodec
 import com.nexustools.genericui.macos.MacosApplicationNativeImpl
 import com.nexustools.genericui.macos.MacosNativeFactory
 import com.nexustools.genericui.macos.MacosNativeWindowHost
+import com.nexustools.genericui.macos.MacosWindowNativeImpl
 import com.nexustools.genericui.tests.DefaultJestElectricRunnerNativeImpl
 import com.nexustools.genericui.tests.desktop.DesktopSharedRunnerNativeImpl
 import kotlinx.cinterop.ByteVar
@@ -33,9 +39,10 @@ private val macosScreenshotHostHooksInit: Boolean = MacosJestElectricRunnerNativ
 /**
  * macOS AppKit runner implementation of `JestElectricRunnerNativeImpl`.
  *
- * Supports both fast headless testing (`visualWindowEnabled = false`, default) and live visual
- * AppKit `NSWindow` execution (`visualWindowEnabled = true`), pumping Cocoa run-loop events,
- * painting CoreGraphics view hierarchies on screen, and capturing live window screenshots.
+ * Delegates window presentation and pixel screenshot capture directly to [MacosNativeWindowHost]
+ * against the live retained AppKit/Cocoa native widget hierarchy (`visualWindowEnabled = false`
+ * headless or `visualWindowEnabled = true` live `NSWindow`), never falling back to synthetic
+ * component snapshots.
  */
 class MacosJestElectricRunnerNativeImpl(
     var visualWindowEnabled: Boolean = false,
@@ -65,7 +72,7 @@ class MacosJestElectricRunnerNativeImpl(
                         current.isEmpty() -> part
                         else -> "$current/$part"
                     }
-                    mkdir(current, 493u.convert()) // 0755
+                    mkdir(current, 493u.convert())
                 }
                 true
             }
@@ -194,9 +201,26 @@ class MacosJestElectricRunnerNativeImpl(
         width: Int,
         height: Int
     ): ImageBuffer? {
-        if (visualWindowEnabled && MacosNativeWindowHost.activeNsWindow != null) {
-            MacosNativeWindowHost.captureWindowScreenshot(width, height)?.let { return it }
-        }
-        return super.captureScreenshot(app, width, height)
+        val targetApp = prepareAppForScreenshot(app, pumpMs = 16L) ?: return null
+
+        val winImpl = targetApp.mainWindow.nativeImpl as? MacosWindowNativeImpl ?: return null
+        val fallbackSize = winImpl.getWindowSize()
+        val targetW = (if (width > 0) width else fallbackSize.width).coerceAtLeast(1)
+        val targetH = (if (height > 0) height else fallbackSize.height).coerceAtLeast(1)
+        winImpl.setWindowSize(Size(targetW, targetH))
+
+        return MacosNativeWindowHost.captureWindowScreenshot(winImpl, targetW, targetH)
+    }
+
+    override fun captureScreenshotPng(
+        app: Application?,
+        width: Int,
+        height: Int
+    ): ByteArray? {
+        val buffer = captureScreenshot(app, width, height) ?: return null
+        return AppleImageIoCodecNativeImpl().encode(
+            buffer = buffer,
+            options = ImageEncodeOptions(format = ImageFormat.PNG)
+        ) ?: LibPngCodec.encode(buffer)
     }
 }

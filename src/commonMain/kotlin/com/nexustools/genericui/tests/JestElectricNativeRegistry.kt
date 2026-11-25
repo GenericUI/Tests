@@ -4,7 +4,7 @@ import com.nexustools.genericui.enums.system.BackendTarget
 
 /**
  * Global registry for the active [JestElectricRunnerNativeImpl] and per-[BackendTarget]
- * runner implementations (`Windows`, `MacOS`, `Gtk`, `Qt`, `Swing`, `Android`, `IOS`, `IPadOS`, `Web`).
+ * runner implementations (`Windows`, `MacOS`, `Gtk`, `Kde`, `Swing`, `Android`, `IOS`, `IPadOS`, `Web`).
  *
  * Platform test bootstraps in `:tests` register their platform-specific [JestElectricRunnerNativeImpl]
  * instances here before executing suites.

@@ -11,13 +11,13 @@ The **`:tests`** module ([`build.gradle.kts`](build.gradle.kts)) is a **single c
 
 | `:tests` Source Set | Linked Backend Scope | Key Test Runner & Infrastructure |
 |---------------------|----------------------|----------------------------------|
-| **`commonMain` / `commonTest`** | `:common` | [`JestElectricRunner`](src/commonMain/kotlin/com/nexustools/genericui/tests/JestElectricRunner.kt), `JestSuiteScope`, `JestSuspendRunner`, `RoboAppController`, `RoboFragmentController`, `RoboNodeInteraction`, and 12 single-class `JestElectric*RenderUtil` snapshot utilities |
+| **`commonMain` / `commonTest`** | `:common` | [`JestElectricRunner`](src/commonMain/kotlin/com/nexustools/genericui/tests/JestElectricRunner.kt), `JestSuiteScope`, `JestSuspendRunner`, `RoboAppController`, `RoboFragmentController`, `RoboNodeInteraction`, and 12 `:tests` `commonMain` headless snapshot utilities (`JestElectric*RenderUtil`) |
 | **`systemMain`** | `:system` | Blink style/layout verification across all 8 non-web OS targets |
-| **`desktopMain` / `nativeDesktopMain`** | `:desktop` | `DesktopSharedRunnerNativeImpl` desktop event loop & window test harness |
+| **`desktopMain` / `nativeDesktopMain`** | `:desktop` | `DesktopSharedRunnerNativeImpl` desktop event loop, retained layout/style sync, & window test harness |
 | **`jvmAndAndroidMain`** | `:jvm` | `JestScreenshotHostIo` shared screenshot & host filesystem helpers |
-| **`mingwMain` / `mingwX64Test`** | `Windows` | `WindowsVisualAppRunnerNativeImpl` (`visualOnWindows = true` onscreen `HWND` vs. fast headless verification) + `WindowsBackdropBlurTest` |
-| **`macosMain` / `macosArm64Test`** | `MacOS` (+ `:apple`) | `MacosJestElectricRunnerNativeImpl` (AppKit + Metal `CIContext` + squircle verification) |
-| **`linuxMain` / `linuxTest`** | `Gtk` & `Qt` | Co-hosts both `GtkJestElectricRunnerNativeImpl` and `QtJestElectricRunnerNativeImpl` cleanly in one test binary (`LinuxGtkAndQtRunnerTest`) |
+| **`mingwMain` / `mingwX64Test`** | `Windows` | `WindowsVisualAppRunnerNativeImpl` (`visualOnWindows = true` onscreen `HWND` capture via `PrintWindow(..., PW_RENDERFULLCONTENT)` vs. headless verification) + `WindowsBackdropBlurTest` |
+| **`macosMain` / `macosArm64Test`** | `MacOS` (+ `:apple`) | `MacosJestElectricRunnerNativeImpl` (real AppKit `NSWindow`/`NSView` capture via `cacheDisplayInRect:toBitmapImageRep:` + Metal `CIContext` + squircle verification) |
+| **`linuxMain` / `linuxTest`** | `Gtk` & `Kde` | Co-hosts **`GtkJestElectricRunnerNativeImpl`** (`GtkJestElectricBootstrap`, real widget capture via `GtkWidgetPaintable` + `GskRenderer`) and **`KdeJestElectricRunnerNativeImpl`** (`KdeJestElectricBootstrap`, real widget capture via `QWidget::render`) cleanly in [`LinuxGtkAndKdeRunnerTest`](src/linuxTest/kotlin/com/nexustools/genericui/tests/linux/LinuxGtkAndKdeRunnerTest.kt) |
 | **`jvmMain` / `jvmTest`** | `Swing` (+ `:jvm`) | `SwingJUnitRunnerNativeImpl` & `JestElectricSwingTestBase` |
 | **`mobileMain`** | `:mobile` | `MobileSharedRunnerNativeImpl` |
 | **`androidMain` / `androidHostTest`** | `Android` (+ `:jvm`) | `AndroidRobolectricRunnerNativeImpl` & `JestElectricRobolectricTestBase` (Robolectric SDK 35) |
@@ -62,9 +62,9 @@ class CounterFragmentTest {
 
 ---
 
-## `JestElectricButtonRenderUtil` Headless `backdropFilter`, Thread Dispatching, & `ServiceWorker` Testing
+## Headless Snapshots, Real OS Widget Surface Capture, Thread Dispatching, & `ServiceWorker` Testing
 
-- **Headless `backdropFilter` Rendering (`JestElectricButtonRenderUtil` / `JestElectricContainerChromeRenderUtil`)**: Evaluates `CssFilter.backdropBlurOrFilter(styledSpec.backdropBlurPx, styledSpec.backdropFilter)` via `applyBackdropToImageBufferRegion(...)` on `StyledButton` and `StyledContainer` (keeping transparent `fillBg = null` when no explicit background/tint is set, and stripping `backdropFilter` on `TextBubble`), verified in `JestElectricRunnerTest.testSnapshotRendererAppliesBackdropBlurToStyledContainerAndStyledButton`.
+- **Headless `:common` Snapshots & Real Retained OS Surface Capture**: In `:tests` `commonMain`, [`JestElectricComponentSnapshotRenderer`](src/commonMain/kotlin/com/nexustools/genericui/test/jestelectric/render/JestElectricComponentSnapshotRenderer.kt) and the 12 headless `JestElectric*RenderUtil` helpers evaluate all 10 `CssFilter` / `backdrop-filter` ops (`CssFilter.backdropBlurOrFilter(styledSpec.backdropBlurPx, styledSpec.backdropFilter)` via `FastBackdropBlurKernel` & `CssFilterColorMatrix`) across `StyledComponent`, `StyledButton`, `StyledContainer`, and `Composite` components (`StyledSlider`, `SeekBar`, `ExpandingVolumeSlider` — keeping transparent `fillBg = null` when no explicit background/tint is set), alongside `ThemeStyleSheetRegistry` runtime theme updates, `SystemCssAnimationController` (`Animator`) `@keyframes`, and proximal `position: relative` containing-block layout. Separately, the desktop visual/platform runners (`MacosJestElectricRunnerNativeImpl`, `WindowsVisualAppRunnerNativeImpl`, `GtkJestElectricRunnerNativeImpl`, `KdeJestElectricRunnerNativeImpl`) capture **real mounted native OS widget hierarchies** via `cacheDisplayInRect:toBitmapImageRep:`, `PrintWindow(..., PW_RENDERFULLCONTENT)`, `GtkWidgetPaintable` + `GskRenderer`, and `QWidget::render`.
 - **UI vs. Logic Dispatcher (`DefaultUiThreadDispatcherNativeImpl` / `JvmUiThreadDispatcherBase`)**: Handles `dispatchToUi`, `dispatchToLogic`, `runOnUiBlocking`, and headless inline execution automatically in tests (`JestSuspendRunner`).
 - **`ServiceWorker` Test Harnesses**: Includes `ServiceWorkerExtension.resetForTests()`, `ServiceWorkerRuntimeAndIpcTest` (desktop loopback `127.0.0.1:0` IPC + `DesktopOsHelpers` + `WindowsShortcutWriter`), `AndroidServiceWorkerRobolectricTest` (Robolectric SDK 35 notification/action intents + `Binder` IPC), `AppleMobileServiceWorkerTest` (`isSupported == false`), `WebServiceWorkerBridgeTest`, and `ServiceWorkerCrossPlatformTest`.
 

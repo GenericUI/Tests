@@ -26,6 +26,7 @@ import com.nexustools.genericui.nativeimpl.layout.ContainerNativeImpl
 import com.nexustools.genericui.nativeimpl.layout.DividerNativeImpl
 import com.nexustools.genericui.nativeimpl.layout.ScrollViewNativeImpl
 import com.nexustools.genericui.nativeimpl.layout.StyledContainerNativeImpl
+import com.nexustools.genericui.nativeimpl.surface.StyledComponentNativeImpl
 import com.nexustools.genericui.nativeimpl.lazy.LazyGridNativeImpl
 import com.nexustools.genericui.nativeimpl.lazy.LazyListNativeImpl
 import com.nexustools.genericui.nativeimpl.lazy.TreeViewNativeImpl
@@ -72,6 +73,7 @@ internal object HeadlessLifecycleMarkerFactory : NativeFactory {
     override fun createToolPalette(): ToolPaletteNativeImpl<*> = unsupported()
     override fun createContainer(classPrefix: String): ContainerNativeImpl<*> = unsupported()
     override fun createStyledContainer(classPrefix: String, tagName: String): StyledContainerNativeImpl<*> = unsupported()
+    override fun createStyledComponent(classPrefix: String, tagName: String): StyledComponentNativeImpl<*> = unsupported()
     override fun createBookContainer(): BookContainerNativeImpl<*> = unsupported()
     override fun createScrollView(): ScrollViewNativeImpl<*> = unsupported()
     override fun createDivider(): DividerNativeImpl<*> = unsupported()
@@ -102,5 +104,10 @@ internal object HeadlessLifecycleMarkerFactory : NativeFactory {
     override fun createPermissionManager(): PermissionManagerNativeImpl = unsupported()
     override fun createSystemTray(): SystemTrayNativeImpl = unsupported()
     override fun createNotificationManager(): NotificationManagerNativeImpl = unsupported()
-    override fun createNetworkMonitor(): NetworkMonitorNativeImpl = unsupported()
+    override fun createNetworkMonitor(): NetworkMonitorNativeImpl = object : NetworkMonitorNativeImpl {
+        override var isDisposed: Boolean = false
+        override fun dispose() { isDisposed = true }
+        override fun isOnline(): Boolean = true
+        override fun setOnConnectivityChanged(listener: ((Boolean) -> Unit)?) {}
+    }
 }

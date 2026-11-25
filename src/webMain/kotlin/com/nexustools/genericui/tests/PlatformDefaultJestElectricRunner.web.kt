@@ -1,4 +1,6 @@
 package com.nexustools.genericui.tests
 
+import com.nexustools.genericui.tests.web.WebJestElectricRunnerNativeImpl
+
 internal actual fun createPlatformDefaultJestElectricRunner(): JestElectricRunnerNativeImpl =
-    DefaultJestElectricRunnerNativeImpl()
+    WebJestElectricRunnerNativeImpl().also { it.ensureBackendInitialized() }

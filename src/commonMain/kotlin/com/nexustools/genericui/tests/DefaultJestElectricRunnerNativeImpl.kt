@@ -1,5 +1,6 @@
 package com.nexustools.genericui.tests
 
+import com.nexustools.genericui.animation.Animator
 import com.nexustools.genericui.component.action.Button
 import com.nexustools.genericui.component.form.CheckBox
 import com.nexustools.genericui.component.form.TextField
@@ -7,10 +8,15 @@ import com.nexustools.genericui.component.shell.Application
 import com.nexustools.genericui.component.shell.FragmentApplication
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.GenericUI
+import com.nexustools.genericui.core.UiTimerScheduler
+import com.nexustools.genericui.enums.bootstrap.BootstrapPointerEvents
+import com.nexustools.genericui.enums.css.CssPointerEvents
 import com.nexustools.genericui.enums.system.BackendTarget
 import com.nexustools.genericui.image.ImageBuffer
 import com.nexustools.genericui.image.codec.LibJpegCodec
+import com.nexustools.genericui.image.codec.LibPngCodec
 import com.nexustools.genericui.io.FileSystem
+import com.nexustools.genericui.threading.GenericUiThreading
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
@@ -61,15 +67,19 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
             return "."
         }
 
-        fun resolveScreenshotOutputPath(outputPath: String): String {
+        fun resolveScreenshotOutputPath(
+            outputPath: String,
+            defaultExtension: String = ".jpg"
+        ): String {
             val trimmed = outputPath.trim().replace('\\', '/')
-            val fileNameWithExt = if (trimmed.endsWith(".jpg", ignoreCase = true) ||
-                trimmed.endsWith(".jpeg", ignoreCase = true)
-            ) {
-                trimmed
-            } else {
-                "$trimmed.jpg"
-            }
+            val lower = trimmed.lowercase()
+            val hasKnownExt = lower.endsWith(".jpg") ||
+                lower.endsWith(".jpeg") ||
+                lower.endsWith(".png") ||
+                lower.endsWith(".webp") ||
+                lower.endsWith(".bmp")
+            val normalizedExt = if (defaultExtension.startsWith(".")) defaultExtension else ".$defaultExtension"
+            val fileNameWithExt = if (hasKnownExt) trimmed else "$trimmed$normalizedExt"
 
             // Absolute path on Windows (e.g. D:/...) or POSIX (/...)
             if ((fileNameWithExt.length >= 3 && fileNameWithExt[1] == ':' && fileNameWithExt[2] == '/') ||
@@ -122,6 +132,25 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
     protected var activeApp: Application? = null
     protected var currentBannerText: String = ""
 
+    internal fun prepareAppForScreenshot(
+        app: Application?,
+        pumpMs: Long = 16L
+    ): Application? {
+        ensureBackendInitialized()
+        val targetApp = app ?: activeApp ?: Application.current ?: return null
+        val factory = GenericUI.activeFactory
+        if (factory != null && (targetApp.appNativeImpl == null || targetApp.mainWindow.nativeImpl == null)) {
+            targetApp.run(factory)
+        }
+        targetApp.mainWindow.fragmentContainer?.ensureActiveFragmentStartedAndResumed()
+        (targetApp as? FragmentApplication)?.rootFragmentContainer?.ensureActiveFragmentStartedAndResumed()
+        GenericUiThreading.flushAllQueues()
+        if (pumpMs > 0L) {
+            pumpUiEvents(pumpMs)
+        }
+        return targetApp
+    }
+
     override val backendName: String
         get() = GenericUI.activeFactory?.backendName ?: "common-headless"
 
@@ -152,15 +181,34 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
     }
 
     override fun pumpUiEvents(durationMs: Long) {
-        val delta = durationMs.coerceAtLeast(1L).toFloat()
-        activeApp?.mainWindow?.stepTransitions(delta)
+        val advanceMs = durationMs.coerceAtLeast(0L)
+        if (advanceMs > 0L) {
+            UiTimerScheduler.advanceTimeBy(advanceMs.toInt())
+        }
+        val animatorTicks = if (advanceMs > 0L) {
+            Animator.advanceTimeBy(advanceMs.toDouble())
+        } else {
+            0
+        }
+        if (animatorTicks == 0) {
+            val delta = durationMs.coerceAtLeast(1L).toFloat()
+            activeApp?.mainWindow?.stepTransitions(delta)
+        }
         if (activeApp is FragmentApplication) {
             (activeApp as? FragmentApplication)?.currentFragment?.flushTimeouts(durationMs.toInt())
         }
     }
 
+    protected fun isPointerEventsNoneForComponent(component: AbstractComponent): Boolean =
+        component.style.getPointerEvents() == CssPointerEvents.NONE ||
+            component.computedStyle?.pointerEventsEnabled == false ||
+            component.getBootstrap().getPointerEvents() == BootstrapPointerEvents.NONE ||
+            component.getAttribute("pointer-events")?.equals("none", ignoreCase = true) == true ||
+            component.getAttribute("layerPassThrough")?.equals("true", ignoreCase = true) == true ||
+            component.hasClass("gui-layer-pass-through")
+
     override fun performNativeClick(component: AbstractComponent): Boolean {
-        if (!component.isEnabled || !component.isVisible) return false
+        if (!component.isEnabled || !component.isVisible || isPointerEventsNoneForComponent(component)) return false
         when (component) {
             is CheckBox -> {
                 component.isChecked = !component.isChecked
@@ -177,8 +225,23 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
         return true
     }
 
+    fun performNativeClickAt(
+        app: Application? = null,
+        x: Int,
+        y: Int,
+        width: Int = 1280,
+        height: Int = 800
+    ): AbstractComponent? {
+        val targetApp = app ?: activeApp ?: Application.current ?: return null
+        val scene = JestElectricComponentSnapshotRenderer.renderApplicationScene(targetApp, width, height)
+        val hit = JestElectricComponentSnapshotRenderer.hitTestAt(scene.nodes, x, y) ?: return null
+        if (!hit.isEnabled || !hit.isVisible) return null
+        performNativeClick(hit)
+        return hit
+    }
+
     override fun performNativeHover(component: AbstractComponent): Boolean {
-        if (!component.isVisible) return false
+        if (!component.isVisible || isPointerEventsNoneForComponent(component)) return false
         component.isHovered = true
         pumpUiEvents(16L)
         return true
@@ -227,6 +290,25 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
         return JestElectricComponentSnapshotRenderer.renderApplication(targetApp, width, height)
     }
 
+    override fun captureScreenshotPng(
+        app: Application?,
+        width: Int,
+        height: Int
+    ): ByteArray? {
+        val buffer = captureScreenshot(app, width, height) ?: return null
+        return LibPngCodec.encode(buffer)
+    }
+
+    override fun saveScreenshotPng(
+        outputPath: String,
+        app: Application?,
+        width: Int,
+        height: Int
+    ): String? {
+        val pngBytes = captureScreenshotPng(app, width, height) ?: return null
+        return writeScreenshotBytes(outputPath, pngBytes, ".png")
+    }
+
     override fun saveScreenshotJpeg(
         outputPath: String,
         app: Application?,
@@ -236,16 +318,25 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
     ): String? {
         val buffer = captureScreenshot(app, width, height) ?: return null
         val jpegBytes = LibJpegCodec.encode(buffer, quality)
-        val resolvedPath = resolveScreenshotOutputPath(outputPath)
+        return writeScreenshotBytes(outputPath, jpegBytes, ".jpg")
+    }
+
+    protected fun writeScreenshotBytes(
+        outputPath: String,
+        bytes: ByteArray,
+        defaultExtension: String
+    ): String? {
+        if (bytes.isEmpty()) return null
+        val resolvedPath = resolveScreenshotOutputPath(outputPath, defaultExtension)
         val parentDir = resolvedPath.substringBeforeLast('/', "")
         if (parentDir.isNotEmpty()) {
             JestScreenshotHostIo.mkdirs(parentDir)
             hostCreateDirectoriesHook?.invoke(parentDir)
             runSync { FileSystem.mkdir(parentDir, recursive = true) }
         }
-        val wroteViaHostIo = JestScreenshotHostIo.writeBytes(resolvedPath, jpegBytes)
-        val wroteViaHost = if (!wroteViaHostIo) hostWriteBytesHook?.invoke(resolvedPath, jpegBytes) == true else true
-        val wroteViaFs = if (!wroteViaHost) runSync { FileSystem.writeFile(resolvedPath, jpegBytes) } == true else true
-        return if (wroteViaHostIo || wroteViaHost || wroteViaFs) resolvedPath else resolvedPath
+        val wroteViaHostIo = JestScreenshotHostIo.writeBytes(resolvedPath, bytes)
+        val wroteViaHost = if (!wroteViaHostIo) hostWriteBytesHook?.invoke(resolvedPath, bytes) == true else true
+        val wroteViaFs = if (!wroteViaHost) runSync { FileSystem.writeFile(resolvedPath, bytes) } == true else true
+        return if (wroteViaHostIo || wroteViaHost || wroteViaFs) resolvedPath else null
     }
 }

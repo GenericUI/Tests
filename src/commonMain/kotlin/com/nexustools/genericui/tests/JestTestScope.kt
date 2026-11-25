@@ -72,14 +72,12 @@ class JestTestScope(
     }
 
     /**
-     * Advances fragment timers (`setTimeout` / `setInterval`) and CSS transitions by [deltaMs].
+     * Advances fragment timers (`setTimeout` / `setInterval`), `UiTimerScheduler`, [Animator],
+     * and CSS transitions by [deltaMs].
      */
     fun advanceTimersByTime(deltaMs: Long) {
         for (fragController in activeFragmentControllers) {
-            fragController.idleMainLooper(deltaMs)
-        }
-        for (appController in activeAppControllers) {
-            appController.idleMainLooper(deltaMs)
+            fragController.fragment.flushTimeouts(deltaMs.toInt())
         }
         runnerImpl.pumpUiEvents(deltaMs)
     }
@@ -95,8 +93,30 @@ class JestTestScope(
         runnerImpl.captureScreenshot(app, width, height)
 
     /**
+     * Captures a rendered screenshot of [app] (or the most recently launched application) encoded as PNG bytes.
+     */
+    fun captureScreenshotPng(
+        app: Application? = activeAppControllers.lastOrNull()?.app,
+        width: Int = 1280,
+        height: Int = 800
+    ): ByteArray? =
+        runnerImpl.captureScreenshotPng(app, width, height)
+
+    /**
      * Captures a rendered screenshot of [app] (or the most recently launched application) and saves it as a
-     * Baseline DCT + Huffman JPEG file at [fileNameOrPath] (or `<repoRoot>/examples/screenshots/<fileNameOrPath>`).
+     * PNG file at [fileNameOrPath] (or `<repoRoot>/examples/screenshots/<fileNameOrPath>`).
+     */
+    fun takeScreenshotPng(
+        fileNameOrPath: String,
+        app: Application? = activeAppControllers.lastOrNull()?.app,
+        width: Int = 1280,
+        height: Int = 800
+    ): String? =
+        runnerImpl.saveScreenshotPng(fileNameOrPath, app, width, height)
+
+    /**
+     * Captures a rendered screenshot of [app] (or the most recently launched application) and saves it as a
+     * PNG (when `.png`) or Baseline DCT + Huffman JPEG file at [fileNameOrPath] (or `<repoRoot>/examples/screenshots/<fileNameOrPath>`).
      */
     fun takeScreenshot(
         fileNameOrPath: String,
@@ -104,8 +124,11 @@ class JestTestScope(
         quality: Int = 90,
         width: Int = 1280,
         height: Int = 800
-    ): String? =
+    ): String? = if (fileNameOrPath.trim().endsWith(".png", ignoreCase = true)) {
+        runnerImpl.saveScreenshotPng(fileNameOrPath, app, width, height)
+    } else {
         runnerImpl.saveScreenshotJpeg(fileNameOrPath, app, quality, width, height)
+    }
 
     internal fun cleanupTestResources() {
         for (fragController in activeFragmentControllers.asReversed()) {

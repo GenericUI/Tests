@@ -7,7 +7,7 @@ import com.nexustools.genericui.tests.DefaultJestElectricRunnerNativeImpl
 
 /**
  * Shared desktop base implementation of `JestElectricRunnerNativeImpl` for native desktop
- * targets (`Windows`, `MacOS`, `Gtk`, `Qt`).
+ * targets (`Windows`, `MacOS`, `Gtk`, `Kde`).
  */
 open class DesktopSharedRunnerNativeImpl(
     private val factoryProvider: () -> NativeFactory,

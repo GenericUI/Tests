@@ -152,13 +152,33 @@ class RoboAppController<A : Application>(
         runnerImpl.captureScreenshot(app, width, height)
 
     /**
-     * Captures a rendered screenshot of [app] and writes a Baseline DCT + Huffman JPEG file to [fileNameOrPath]
+     * Captures a rendered screenshot of [app] encoded as PNG bytes.
+     */
+    fun captureScreenshotPng(width: Int = 1280, height: Int = 800): ByteArray? =
+        runnerImpl.captureScreenshotPng(app, width, height)
+
+    /**
+     * Captures a rendered screenshot of [app] and writes a PNG file to [fileNameOrPath]
      * (resolving simple filenames to `<repoRoot>/examples/screenshots/<fileNameOrPath>`).
+     */
+    fun takeScreenshotPng(
+        fileNameOrPath: String,
+        width: Int = 1280,
+        height: Int = 800
+    ): String? = runnerImpl.saveScreenshotPng(fileNameOrPath, app, width, height)
+
+    /**
+     * Captures a rendered screenshot of [app] and writes a PNG (when `.png`) or Baseline DCT + Huffman JPEG file
+     * to [fileNameOrPath] (resolving simple filenames to `<repoRoot>/examples/screenshots/<fileNameOrPath>`).
      */
     fun takeScreenshot(
         fileNameOrPath: String,
         quality: Int = 90,
         width: Int = 1280,
         height: Int = 800
-    ): String? = runnerImpl.saveScreenshotJpeg(fileNameOrPath, app, quality, width, height)
+    ): String? = if (fileNameOrPath.trim().endsWith(".png", ignoreCase = true)) {
+        runnerImpl.saveScreenshotPng(fileNameOrPath, app, width, height)
+    } else {
+        runnerImpl.saveScreenshotJpeg(fileNameOrPath, app, quality, width, height)
+    }
 }

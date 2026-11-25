@@ -78,8 +78,6 @@ object JestElectricInputFieldRenderUtil {
     ) {
         val fh = h.coerceAtMost(28)
         val fy = y + (h - fh) / 2
-        val effectiveType = comp.borderType?.takeIf { it != BootstrapType.NONE }
-            ?: comp.type.takeIf { it != BootstrapType.NONE }
 
         val offscreen = JestElectricControlTintRenderUtil.renderNativeControlSpriteOffscreen(
             w = w,
@@ -91,17 +89,6 @@ object JestElectricInputFieldRenderUtil {
             isFocused = comp.isFocused,
             isEnabled = comp.isEnabled
         )
-        if (effectiveType != null) {
-            JestElectricControlTintRenderUtil.tintOffscreenControlBuffer(
-                offscreen = offscreen,
-                tintColor = ctx.resolveBootstrapColor(effectiveType),
-                isDark = ctx.isDark,
-                outline = true,
-                isHovered = comp.isHovered,
-                isPressed = comp.isActivePressed,
-                isEnabled = comp.isEnabled
-            )
-        }
         JestElectricControlTintRenderUtil.blitOffscreenBuffer(
             target = ctx.buffer,
             dstX = x,
@@ -204,7 +191,7 @@ object JestElectricInputFieldRenderUtil {
             y = fy,
             w = spinW,
             h = halfH,
-            bootstrapType = comp.type,
+            bootstrapType = BootstrapType.NONE,
             labelText = "^",
             centerText = true
         )
@@ -214,7 +201,7 @@ object JestElectricInputFieldRenderUtil {
             y = fy + halfH,
             w = spinW,
             h = fh - halfH,
-            bootstrapType = comp.type,
+            bootstrapType = BootstrapType.NONE,
             labelText = "▾",
             centerText = true
         )
@@ -274,9 +261,6 @@ object JestElectricInputFieldRenderUtil {
         h: Int,
         comp: TextArea
     ) {
-        val effectiveType = comp.borderType?.takeIf { it != BootstrapType.NONE }
-            ?: comp.type.takeIf { it != BootstrapType.NONE }
-
         val offscreen = JestElectricControlTintRenderUtil.renderNativeControlSpriteOffscreen(
             w = w,
             h = h,
@@ -287,17 +271,6 @@ object JestElectricInputFieldRenderUtil {
             isFocused = comp.isFocused,
             isEnabled = comp.isEnabled
         )
-        if (effectiveType != null) {
-            JestElectricControlTintRenderUtil.tintOffscreenControlBuffer(
-                offscreen = offscreen,
-                tintColor = ctx.resolveBootstrapColor(effectiveType),
-                isDark = ctx.isDark,
-                outline = true,
-                isHovered = comp.isHovered,
-                isPressed = comp.isActivePressed,
-                isEnabled = comp.isEnabled
-            )
-        }
         JestElectricControlTintRenderUtil.blitOffscreenBuffer(
             target = ctx.buffer,
             dstX = x,

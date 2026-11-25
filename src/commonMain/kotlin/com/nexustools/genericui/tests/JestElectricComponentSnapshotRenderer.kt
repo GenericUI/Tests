@@ -3,6 +3,7 @@ package com.nexustools.genericui.tests
 import com.nexustools.genericui.component.shell.Application
 import com.nexustools.genericui.component.shell.FragmentApplication
 import com.nexustools.genericui.core.AbstractComponent
+import com.nexustools.genericui.enums.css.CssPosition
 import com.nexustools.genericui.image.ImageBuffer
 import com.nexustools.genericui.test.jestelectric.render.JestElectricButtonRenderUtil
 import com.nexustools.genericui.test.jestelectric.render.JestElectricContainerChromeRenderUtil
@@ -24,6 +25,26 @@ import com.nexustools.genericui.test.jestelectric.render.JestElectricWorkspaceWi
  */
 object JestElectricComponentSnapshotRenderer {
 
+    data class SnapshotRenderScene(
+        val buffer: ImageBuffer,
+        val nodes: List<JestElectricRenderContext.RenderedNodeLayout>
+    )
+
+    fun hitTestAt(
+        nodes: List<JestElectricRenderContext.RenderedNodeLayout>,
+        x: Int,
+        y: Int
+    ): AbstractComponent? {
+        for (i in nodes.indices.reversed()) {
+            val node = nodes[i]
+            if (node.pointerEventsNone || !node.component.isVisible) continue
+            if (x >= node.x && x < node.x + node.w && y >= node.y && y < node.y + node.h) {
+                return node.component
+            }
+        }
+        return null
+    }
+
     /**
      * Renders [app] into a newly allocated [ImageBuffer] of dimensions `[width] x [height]`.
      */
@@ -32,7 +53,18 @@ object JestElectricComponentSnapshotRenderer {
         width: Int = 1280,
         height: Int = 800,
         backendTargetOverride: String? = null
-    ): ImageBuffer {
+    ): ImageBuffer = renderApplicationScene(app, width, height, backendTargetOverride).buffer
+
+    /**
+     * Renders [app] into an [ImageBuffer] and returns the complete rendered scene graph nodes
+     * (with post-position, post-transform boxes, `z-index`, and `pointer-events` flags) for hit-testing.
+     */
+    fun renderApplicationScene(
+        app: Application,
+        width: Int = 1280,
+        height: Int = 800,
+        backendTargetOverride: String? = null
+    ): SnapshotRenderScene {
         val w = width.coerceAtLeast(320)
         val h = height.coerceAtLeast(240)
         val buf = ImageBuffer(w, h)
@@ -96,7 +128,16 @@ object JestElectricComponentSnapshotRenderer {
             ?: app.getContent()
 
         if (rootComponent != null) {
-            renderComponent(ctx, 8, curY + 6, w - 16, bodyH - 12, rootComponent, depth = 0)
+            val bodyRect = JestElectricRenderContext.RectInt(8, curY + 6, w - 16, bodyH - 12)
+            renderComponent(
+                ctx = ctx.withContainingBlock(bodyRect),
+                x = bodyRect.x,
+                y = bodyRect.y,
+                w = bodyRect.w,
+                h = bodyRect.h,
+                comp = rootComponent,
+                depth = 0
+            )
         }
 
         // 5. Render open DialogWindows if any
@@ -112,12 +153,14 @@ object JestElectricComponentSnapshotRenderer {
 
         // Outer window frame border
         JestElectricControlTintRenderUtil.drawRectBorder(buf, 0, 0, w, h, ctx.borderSubtle, 1)
-        return buf
+        return SnapshotRenderScene(buffer = buf, nodes = ctx.renderedNodes.toList())
     }
 
     /**
      * Dispatches rendering of a single [comp] subtree at `(x, y, w, h)` to the appropriate
-     * type-grouped `JestElectric*RenderUtil` class.
+     * type-grouped `JestElectric*RenderUtil` class after applying CSS positioning, signed
+     * `CssTransform2D`, proximal `position: relative` containing-block propagation, and
+     * hit-test scene recording.
      */
     fun renderComponent(
         ctx: JestElectricRenderContext,
@@ -128,74 +171,85 @@ object JestElectricComponentSnapshotRenderer {
         comp: AbstractComponent,
         depth: Int = 0
     ) {
-        if (!comp.isVisible || w <= 4 || h <= 4 || depth > 28) return
+        if (!comp.isVisible || depth > 28) return
+        val pos = ctx.resolveEffectiveCssPosition(comp)
+        val positionedBox = ctx.resolvePositionedBox(comp, x, y, w, h)
+        val renderBox = ctx.applyTransformToBox(comp, positionedBox)
+        val rx = renderBox.x
+        val ry = renderBox.y
+        val rw = renderBox.w
+        val rh = renderBox.h
+        if (rw <= 2 || rh <= 2) return
+
+        ctx.recordRenderedNode(comp, renderBox)
+        val dispatchCtx = if (pos != CssPosition.STATIC) ctx.withContainingBlock(renderBox) else ctx
 
         // 1. Workspace, Docking, MDI, SplitPane, ScrollView, Dialog, Toast
         if (JestElectricWorkspaceWindowRenderUtil.canRender(comp) &&
-            JestElectricWorkspaceWindowRenderUtil.render(ctx, x, y, w, h, comp, depth)
+            JestElectricWorkspaceWindowRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp, depth)
         ) {
             return
         }
 
         // 2. Navigation (TabContainer, TabbedFragment, MenuBar, Navbar, Toolbar, Breadcrumb, Pagination, Stepper, BottomNavigationBar, SideNav, Drawer, StatusBar)
         if (JestElectricNavigationRenderUtil.canRender(comp) &&
-            JestElectricNavigationRenderUtil.render(ctx, x, y, w, h, comp, depth)
+            JestElectricNavigationRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp, depth)
         ) {
             return
         }
 
         // 3. Data Display (Table, LazyGridTree, LazyList, LazyColumn, LazyRow, LazyGrid, TreeView, ImageView, Avatar, Popover, Tooltip)
         if (JestElectricDataDisplayRenderUtil.canRender(comp) &&
-            JestElectricDataDisplayRenderUtil.render(ctx, x, y, w, h, comp, depth)
+            JestElectricDataDisplayRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp, depth)
         ) {
             return
         }
 
-        // 4. Slider & Progress (Slider, RangeSlider, ProgressBar, Spinner)
+        // 4. Slider & Progress (Slider, StyledSlider, RangeSlider, ProgressBar, Spinner)
         if (JestElectricSliderProgressRenderUtil.canRender(comp) &&
-            JestElectricSliderProgressRenderUtil.render(ctx, x, y, w, h, comp)
+            JestElectricSliderProgressRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp)
         ) {
             return
         }
 
         // 5. Toggle & Selection (Switch, CheckBox, RadioButton, RadioGroup, ComboBox, Select, DropdownButton)
         if (JestElectricToggleSelectionRenderUtil.canRender(comp) &&
-            JestElectricToggleSelectionRenderUtil.render(ctx, x, y, w, h, comp, depth)
+            JestElectricToggleSelectionRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp, depth)
         ) {
             return
         }
 
         // 6. Input Fields (TextField, PasswordField, SearchField, NumberField, ColorPicker, DatePicker, TimePicker, TextArea)
         if (JestElectricInputFieldRenderUtil.canRender(comp) &&
-            JestElectricInputFieldRenderUtil.render(ctx, x, y, w, h, comp)
+            JestElectricInputFieldRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp)
         ) {
             return
         }
 
         // 7. Action Buttons (Button, IconButton, ToggleButton, SplitDropdownButton, FloatingActionButton, StyledButton, ButtonGroup)
         if (JestElectricButtonRenderUtil.canRender(comp) &&
-            JestElectricButtonRenderUtil.render(ctx, x, y, w, h, comp, depth)
+            JestElectricButtonRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp, depth)
         ) {
             return
         }
 
         // 8. Typography & Text (Badge, Heading, Blockquote, CodeBlock, MarkdownView, Text, Label)
         if (JestElectricTextRenderUtil.canRender(comp) &&
-            JestElectricTextRenderUtil.render(ctx, x, y, w, h, comp)
+            JestElectricTextRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp)
         ) {
             return
         }
 
         // 9. Media, Canvas, & Extension Surfaces
         if (JestElectricMediaCanvasRenderUtil.canRender(comp) &&
-            JestElectricMediaCanvasRenderUtil.render(ctx, x, y, w, h, comp, depth)
+            JestElectricMediaCanvasRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp, depth)
         ) {
             return
         }
 
-        // 10. Containers & Layout Chrome (Container, VStack, HStack, FlexBox, ColumnContainer, Card, Accordion, Alert, CollapsiblePanel, Divider, StyledContainer)
+        // 10. Containers & Layout Chrome (Container, VStack, HStack, FlexBox, ColumnContainer, Card, Accordion, Alert, Banner, CollapsiblePanel, Divider, StyledContainer, StyledComponent, Composite)
         if (JestElectricContainerChromeRenderUtil.canRender(comp)) {
-            JestElectricContainerChromeRenderUtil.render(ctx, x, y, w, h, comp, depth)
+            JestElectricContainerChromeRenderUtil.render(dispatchCtx, rx, ry, rw, rh, comp, depth)
         }
     }
 }

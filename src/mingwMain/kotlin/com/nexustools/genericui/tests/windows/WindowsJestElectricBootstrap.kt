@@ -26,4 +26,24 @@ object WindowsJestElectricBootstrap {
         JestElectricNativeRegistry.register(impl)
         return impl
     }
+
+    /**
+     * Installs [WindowsVisualAppRunnerNativeImpl] into [JestElectricNativeRegistry] if not already active
+     * (or updates its visual mode when requested).
+     */
+    fun installIfEnabled(
+        visualWindowEnabled: Boolean = false,
+        stepDelayMs: Long = 24L
+    ): WindowsVisualAppRunnerNativeImpl {
+        val current = JestElectricNativeRegistry.current()
+        if (current is WindowsVisualAppRunnerNativeImpl) {
+            if (current.visualWindowEnabled != visualWindowEnabled) {
+                current.visualWindowEnabled = visualWindowEnabled
+                current.stepDelayMs = stepDelayMs
+                current.ensureBackendInitialized()
+            }
+            return current
+        }
+        return install(visualWindowEnabled = visualWindowEnabled, stepDelayMs = stepDelayMs)
+    }
 }
