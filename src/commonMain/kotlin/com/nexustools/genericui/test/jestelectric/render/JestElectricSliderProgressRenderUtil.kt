@@ -4,7 +4,7 @@ import com.nexustools.genericui.component.feedback.ProgressBar
 import com.nexustools.genericui.component.feedback.Spinner
 import com.nexustools.genericui.component.form.RangeSlider
 import com.nexustools.genericui.component.form.Slider
-import com.nexustools.genericui.component.form.StyledSlider
+import com.nexustools.genericui.component.form.styled.StyledSlider
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.enums.bootstrap.BootstrapType
 import com.nexustools.genericui.style.theme.ThemeConfig

@@ -16,6 +16,7 @@ import com.nexustools.genericui.tests.desktop.DesktopSharedRunnerNativeImpl
 import com.nexustools.genericui.windows.Win32NativeWindowHost
 import com.nexustools.genericui.windows.WindowsApplicationNativeImpl
 import com.nexustools.genericui.windows.WindowsNativeFactory
+import com.nexustools.genericui.windows.WindowsUiThreadDispatcherNativeImpl
 import com.nexustools.genericui.windows.WindowsWicImageCodecNativeImpl
 import com.nexustools.genericui.windows.WindowsWindowNativeImpl
 import kotlinx.cinterop.ByteVar
@@ -109,6 +110,7 @@ class WindowsVisualAppRunnerNativeImpl(
         }
         WindowsApplicationNativeImpl.interactiveWin32GuiEnabled = visualWindowEnabled
         Win32NativeWindowHost.visualTestMode = true
+        WindowsUiThreadDispatcherNativeImpl.attachCurrentThreadAsUiThreadIfUnset()
     }
 
     override fun launchVisualWindowForApp(app: Application, suiteName: String) {

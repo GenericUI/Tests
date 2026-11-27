@@ -2,11 +2,11 @@ package com.nexustools.genericui.tests.android
 
 import com.nexustools.genericui.android.AndroidNativeFactory
 import com.nexustools.genericui.component.action.Button
-import com.nexustools.genericui.component.action.StyledButton
+import com.nexustools.genericui.component.action.styled.StyledButton
 import com.nexustools.genericui.component.form.TextField
 import com.nexustools.genericui.component.fragment.Fragment
 import com.nexustools.genericui.component.fragment.FragmentBundle
-import com.nexustools.genericui.component.layout.StyledContainer
+import com.nexustools.genericui.component.layout.styled.StyledContainer
 import com.nexustools.genericui.component.shell.FragmentApplication
 import com.nexustools.genericui.component.typography.Text
 import com.nexustools.genericui.core.GenericUI

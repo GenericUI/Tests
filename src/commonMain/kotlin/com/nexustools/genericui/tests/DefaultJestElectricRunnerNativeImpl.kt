@@ -181,6 +181,7 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
     }
 
     override fun pumpUiEvents(durationMs: Long) {
+        GenericUiThreading.flushAllQueues()
         val advanceMs = durationMs.coerceAtLeast(0L)
         if (advanceMs > 0L) {
             UiTimerScheduler.advanceTimeBy(advanceMs.toInt())
@@ -197,6 +198,7 @@ open class DefaultJestElectricRunnerNativeImpl : JestElectricRunnerNativeImpl {
         if (activeApp is FragmentApplication) {
             (activeApp as? FragmentApplication)?.currentFragment?.flushTimeouts(durationMs.toInt())
         }
+        GenericUiThreading.flushAllQueues()
     }
 
     protected fun isPointerEventsNoneForComponent(component: AbstractComponent): Boolean =

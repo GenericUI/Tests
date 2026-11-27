@@ -3,7 +3,7 @@ package com.nexustools.genericui.tests
 import com.nexustools.genericui.component.action.Button
 import com.nexustools.genericui.component.fragment.Fragment
 import com.nexustools.genericui.component.fragment.FragmentBundle
-import com.nexustools.genericui.component.layout.StyledContainer
+import com.nexustools.genericui.component.layout.styled.StyledContainer
 import com.nexustools.genericui.component.layout.VStack
 import com.nexustools.genericui.component.shell.FragmentApplication
 import com.nexustools.genericui.component.typography.Heading

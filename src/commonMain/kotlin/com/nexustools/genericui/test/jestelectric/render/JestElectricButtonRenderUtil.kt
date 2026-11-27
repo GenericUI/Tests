@@ -5,7 +5,7 @@ import com.nexustools.genericui.component.action.ButtonGroup
 import com.nexustools.genericui.component.action.FloatingActionButton
 import com.nexustools.genericui.component.action.IconButton
 import com.nexustools.genericui.component.action.SplitDropdownButton
-import com.nexustools.genericui.component.action.StyledButton
+import com.nexustools.genericui.component.action.styled.StyledButton
 import com.nexustools.genericui.component.action.ToggleButton
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.enums.bootstrap.BootstrapType

@@ -1,10 +1,10 @@
 package com.nexustools.genericui.test.jestelectric.render
 
-import com.nexustools.genericui.component.action.StyledButton
+import com.nexustools.genericui.component.action.styled.StyledButton
 import com.nexustools.genericui.component.composite.Composite
-import com.nexustools.genericui.component.layout.StyledContainer
+import com.nexustools.genericui.component.layout.styled.StyledContainer
 import com.nexustools.genericui.component.shell.Application
-import com.nexustools.genericui.component.surface.StyledComponent
+import com.nexustools.genericui.component.surface.styled.StyledComponent
 import com.nexustools.genericui.core.AbstractComponent
 import com.nexustools.genericui.core.GenericUI
 import com.nexustools.genericui.enums.bootstrap.BootstrapPointerEvents

@@ -12,7 +12,7 @@ import com.nexustools.genericui.component.form.CheckBox
 import com.nexustools.genericui.component.form.NumberField
 import com.nexustools.genericui.component.form.Select
 import com.nexustools.genericui.component.form.Slider
-import com.nexustools.genericui.component.form.StyledSlider
+import com.nexustools.genericui.component.form.styled.StyledSlider
 import com.nexustools.genericui.component.form.TextArea
 import com.nexustools.genericui.component.form.TextField
 import com.nexustools.genericui.component.fragment.FragmentContainer
@@ -23,7 +23,7 @@ import com.nexustools.genericui.component.layout.Divider
 import com.nexustools.genericui.component.layout.FlexBox
 import com.nexustools.genericui.component.layout.HStack
 import com.nexustools.genericui.component.layout.ScrollView
-import com.nexustools.genericui.component.layout.StyledContainer
+import com.nexustools.genericui.component.layout.styled.StyledContainer
 import com.nexustools.genericui.component.layout.VStack
 import com.nexustools.genericui.component.lazy.LazyGrid
 import com.nexustools.genericui.component.lazy.LazyGridTree
@@ -36,7 +36,7 @@ import com.nexustools.genericui.component.surface.Accordion
 import com.nexustools.genericui.component.surface.AccordionItem
 import com.nexustools.genericui.component.surface.Card
 import com.nexustools.genericui.component.surface.CollapsiblePanel
-import com.nexustools.genericui.component.surface.StyledComponent
+import com.nexustools.genericui.component.surface.styled.StyledComponent
 import com.nexustools.genericui.component.system.StatusBar
 import com.nexustools.genericui.component.tabs.TabContainer
 import com.nexustools.genericui.component.typography.Badge

@@ -4,7 +4,7 @@ import com.nexustools.genericui.animation.Animator
 import com.nexustools.genericui.component.action.Button
 import com.nexustools.genericui.component.action.DropdownButton
 import com.nexustools.genericui.component.action.SplitDropdownButton
-import com.nexustools.genericui.component.action.StyledButton
+import com.nexustools.genericui.component.action.styled.StyledButton
 import com.nexustools.genericui.component.composite.Composite
 import com.nexustools.genericui.component.content.Table
 import com.nexustools.genericui.component.content.TableCell
@@ -22,14 +22,14 @@ import com.nexustools.genericui.component.form.RangeSlider
 import com.nexustools.genericui.component.form.Select
 import com.nexustools.genericui.component.form.SelectOption
 import com.nexustools.genericui.component.form.Slider
-import com.nexustools.genericui.component.form.StyledSlider
+import com.nexustools.genericui.component.form.styled.StyledSlider
 import com.nexustools.genericui.component.form.Switch
 import com.nexustools.genericui.component.form.TextField
 import com.nexustools.genericui.component.fragment.Fragment
 import com.nexustools.genericui.component.fragment.FragmentBundle
 import com.nexustools.genericui.component.layout.Container
 import com.nexustools.genericui.component.layout.HStack
-import com.nexustools.genericui.component.layout.StyledContainer
+import com.nexustools.genericui.component.layout.styled.StyledContainer
 import com.nexustools.genericui.component.layout.VStack
 import com.nexustools.genericui.component.navigation.Breadcrumb
 import com.nexustools.genericui.component.navigation.BreadcrumbItem
@@ -39,7 +39,7 @@ import com.nexustools.genericui.component.shell.Menu
 import com.nexustools.genericui.component.shell.MenuBar
 import com.nexustools.genericui.component.shell.MenuItem
 import com.nexustools.genericui.component.surface.Card
-import com.nexustools.genericui.component.surface.StyledComponent
+import com.nexustools.genericui.component.surface.styled.StyledComponent
 import com.nexustools.genericui.component.tabs.Tab
 import com.nexustools.genericui.component.tabs.TabContainer
 import com.nexustools.genericui.component.typography.Badge
